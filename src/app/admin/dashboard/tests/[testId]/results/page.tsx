@@ -47,7 +47,8 @@ export default function AdminTestResultsPage() {
           // Fetch student name
           const studentDoc = await getDoc(doc(db, "students", rData.studentId));
           const studentName = studentDoc.exists() ? studentDoc.data().name : "Unknown Student";
-          resultsData.push({ id: rDoc.id, studentName, ...rData });
+          const { id, ...restData } = rData;
+          resultsData.push({ id: rDoc.id, studentName, ...restData });
         }
         
         // Sort by marks descending
