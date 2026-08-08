@@ -457,7 +457,6 @@ export default function LiveTestPage() {
         subjectWiseMarks: subjectWiseMarks as any,
         subjectWiseAccuracy: subjectWiseAccuracy as any,
         overallAccuracy: Number(overallAccuracy.toFixed(2)),
-        overallAccuracy: Number(overallAccuracy.toFixed(2)),
         createdAt: new Date().toISOString(),
         submissionType,
         violationReason: violationReason || ""
@@ -485,7 +484,7 @@ export default function LiveTestPage() {
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
         await addDoc(collection(db, "violationLogs"), {
           studentId: user.uid,
-          studentName: dbUser?.name || 'Unknown',
+          studentName: (dbUser?.name as string) || 'Unknown',
           testId: test.id,
           testName: test.testName,
           batch: test.batch,
