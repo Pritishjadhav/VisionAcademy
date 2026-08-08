@@ -33,8 +33,12 @@ service cloud.firestore {
 
     // Students Collection
     match /students/{studentId} {
-      // A student can read their own data
-      allow read: if isAuthenticated() && request.auth.uid == studentId;
+      // A student can read and write their own data
+      allow read, write: if isAuthenticated() && request.auth.uid == studentId;
+      // Parents can read their children's data
+      allow read: if isAuthenticated() && 
+        exists(/databases/$(database)/documents/parents/$(request.auth.uid)) &&
+        studentId in get(/databases/$(database)/documents/parents/$(request.auth.uid)).data.studentIds;
       // Admins and Super Admins can manage students
       allow read, write: if isAdminOrSuperAdmin();
     }
@@ -44,6 +48,94 @@ service cloud.firestore {
       // A parent can read their own data
       allow read: if isAuthenticated() && request.auth.uid == parentId;
       // Admins and Super Admins can manage parents
+      allow read, write: if isAdminOrSuperAdmin();
+    }
+    
+    // Attendance Collection
+    match /attendance/{attendanceId} {
+      // Admins and Super Admins can read and write all attendance
+      allow read, write: if isAdminOrSuperAdmin();
+      
+      // Students can read their own attendance
+      allow read: if isAuthenticated() && resource.data.studentId == request.auth.uid;
+      
+      // Parents can read attendance for their children
+      allow read: if isAuthenticated() && 
+        exists(/databases/$(database)/documents/parents/$(request.auth.uid)) &&
+        resource.data.studentId in get(/databases/$(database)/documents/parents/$(request.auth.uid)).data.studentIds;
+    }
+    // Online Tests Collection
+    match /tests/{testId} {
+      allow read, write: if isAdminOrSuperAdmin();
+      allow read: if isAuthenticated(); // Students can read tests (filtered in UI)
+    }
+
+    // Questions Collection
+    match /questions/{questionId} {
+      allow read, write: if isAdminOrSuperAdmin();
+      allow read: if isAuthenticated(); // Students can read questions during/after test
+    }
+
+    // Student Answers Collection
+    match /studentAnswers/{answerId} {
+      allow read, write: if isAdminOrSuperAdmin();
+      allow read, write: if isAuthenticated() && (resource == null || resource.data.studentId == request.auth.uid || request.resource.data.studentId == request.auth.uid);
+    }
+
+    // Results Collection
+    match /results/{resultId} {
+      allow read, write: if isAdminOrSuperAdmin();
+      allow read, write: if isAuthenticated() && (resource == null || resource.data.studentId == request.auth.uid || request.resource.data.studentId == request.auth.uid);
+      allow read: if isAuthenticated() && 
+        exists(/databases/$(database)/documents/parents/$(request.auth.uid)) &&
+        resource.data.studentId in get(/databases/$(database)/documents/parents/$(request.auth.uid)).data.studentIds;
+    }
+
+    // Rankings and Analytics Collections
+    match /rankings/{rankingId} {
+      allow read, write: if isAdminOrSuperAdmin();
+      allow read: if isAuthenticated();
+    }
+    match /questionAnalytics/{analyticId} {
+      allow read, write: if isAdminOrSuperAdmin();
+    }
+    match /testAnalytics/{analyticId} {
+      allow read, write: if isAdminOrSuperAdmin();
+    }
+    
+    // Theory Tests Collection
+    match /theoryTests/{testId} {
+      allow read, write: if isAdminOrSuperAdmin();
+      allow read: if isAuthenticated();
+    }
+    
+    // Theory Marks Collection
+    match /theoryMarks/{markId} {
+      allow read, write: if isAdminOrSuperAdmin();
+      allow read: if isAuthenticated() && (resource == null || resource.data.studentId == request.auth.uid || request.resource.data.studentId == request.auth.uid);
+      allow read: if isAuthenticated() && 
+        exists(/databases/$(database)/documents/parents/$(request.auth.uid)) &&
+        resource.data.studentId in get(/databases/$(database)/documents/parents/$(request.auth.uid)).data.studentIds;
+    }
+    
+    // Secure Test Mode Collections
+    match /testAttempts/{attemptId} {
+      allow read, write: if isAdminOrSuperAdmin();
+      allow read, write: if isAuthenticated() && (resource == null || resource.data.studentId == request.auth.uid || request.resource.data.studentId == request.auth.uid);
+    }
+
+    match /violationLogs/{logId} {
+      allow read, write: if isAdminOrSuperAdmin();
+      allow create: if isAuthenticated() && request.resource.data.studentId == request.auth.uid;
+      allow read: if isAuthenticated() && resource.data.studentId == request.auth.uid;
+    }
+
+    match /activeSessions/{sessionId} {
+      allow read, write: if isAdminOrSuperAdmin();
+      allow read, write: if isAuthenticated(); 
+    }
+
+    match /resumeHistory/{historyId} {
       allow read, write: if isAdminOrSuperAdmin();
     }
     

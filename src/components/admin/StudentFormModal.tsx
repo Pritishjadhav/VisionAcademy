@@ -6,7 +6,7 @@ import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import { createStudentUser } from "@/actions/users";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, User, Phone } from "lucide-react";
+import { X, User, Phone, Mail, Calendar, GraduationCap } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import toast from "react-hot-toast";
 
@@ -15,6 +15,10 @@ interface Student {
   name: string;
   mobile: string;
   parentMobile?: string;
+  email?: string;
+  gender?: string;
+  dateOfBirth?: string;
+  batch?: string;
 }
 
 interface Props {
@@ -28,6 +32,11 @@ export function StudentFormModal({ isOpen, onClose, onSuccess, student }: Props)
   const [name, setName] = useState("");
   const [mobile, setMobile] = useState("");
   const [parentMobile, setParentMobile] = useState("");
+  const [email, setEmail] = useState("");
+  const [gender, setGender] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [batch, setBatch] = useState("");
+  
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -35,10 +44,20 @@ export function StudentFormModal({ isOpen, onClose, onSuccess, student }: Props)
       setName(student.name);
       setMobile(student.mobile.replace("+91", ""));
       setParentMobile(student.parentMobile ? student.parentMobile.replace("+91", "") : "");
+      const studentEmail = student.email || "";
+      const isSynthetic = (em: string) => em.includes("@visionacademy.com");
+      setEmail(!isSynthetic(studentEmail) ? studentEmail : "");
+      setGender(student.gender || "");
+      setDateOfBirth(student.dateOfBirth || "");
+      setBatch(student.batch || "");
     } else {
       setName("");
       setMobile("");
       setParentMobile("");
+      setEmail("");
+      setGender("");
+      setDateOfBirth("");
+      setBatch("");
     }
   }, [student, isOpen]);
 
@@ -60,6 +79,10 @@ export function StudentFormModal({ isOpen, onClose, onSuccess, student }: Props)
         name,
         mobile: formattedMobile,
         parentMobile: formattedParentMobile,
+        email,
+        gender,
+        dateOfBirth,
+        batch,
         role: "student",
         updatedAt: new Date().toISOString()
       };
@@ -73,7 +96,11 @@ export function StudentFormModal({ isOpen, onClose, onSuccess, student }: Props)
         const result = await createStudentUser({
           name,
           mobile: formattedMobile,
-          parentMobile: formattedParentMobile
+          parentMobile: formattedParentMobile,
+          email,
+          gender,
+          dateOfBirth,
+          batch
         });
 
         if (!result.success) {
@@ -111,9 +138,9 @@ export function StudentFormModal({ isOpen, onClose, onSuccess, student }: Props)
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ type: "spring", duration: 0.5, bounce: 0.3 }}
-              className="bg-white rounded-3xl shadow-2xl w-full max-w-md pointer-events-auto relative overflow-hidden"
+              className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl pointer-events-auto relative flex flex-col max-h-[90vh]"
             >
-              <div className="flex items-center justify-between p-6 border-b border-slate-100">
+              <div className="flex items-center justify-between p-6 border-b border-slate-100 shrink-0">
                 <h3 className="text-xl font-bold text-slate-900">
                   {student ? "Edit Student" : "Add New Student"}
                 </h3>
@@ -125,66 +152,135 @@ export function StudentFormModal({ isOpen, onClose, onSuccess, student }: Props)
                 </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-slate-700">Full Name</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                      <User size={18} />
+              <div className="overflow-y-auto p-6">
+                <form id="student-form" onSubmit={handleSubmit} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium text-slate-700">Full Name *</label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                          <User size={18} />
+                        </div>
+                        <input
+                          type="text"
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-blue/50 focus:border-brand-blue outline-none transition-all"
+                          placeholder="John Doe"
+                          required
+                        />
+                      </div>
                     </div>
-                    <input
-                      type="text"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-blue/50 focus:border-brand-blue outline-none transition-all"
-                      placeholder="John Doe"
-                      required
-                    />
-                  </div>
-                </div>
 
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-slate-700">Student Mobile</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                      <Phone size={18} />
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium text-slate-700">Email Address</label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                          <Mail size={18} />
+                        </div>
+                        <input
+                          type="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-blue/50 focus:border-brand-blue outline-none transition-all"
+                          placeholder="student@example.com"
+                        />
+                      </div>
                     </div>
-                    <input
-                      type="tel"
-                      value={mobile}
-                      onChange={(e) => setMobile(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-blue/50 focus:border-brand-blue outline-none transition-all"
-                      placeholder="10-digit mobile number"
-                      required
-                    />
-                  </div>
-                </div>
 
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-slate-700">Parent Mobile <span className="text-slate-400 font-normal">(Optional)</span></label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                      <Phone size={18} />
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium text-slate-700">Student Mobile *</label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                          <Phone size={18} />
+                        </div>
+                        <input
+                          type="tel"
+                          value={mobile}
+                          onChange={(e) => setMobile(e.target.value)}
+                          className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-blue/50 focus:border-brand-blue outline-none transition-all"
+                          placeholder="10-digit mobile number"
+                          required
+                        />
+                      </div>
                     </div>
-                    <input
-                      type="tel"
-                      value={parentMobile}
-                      onChange={(e) => setParentMobile(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-blue/50 focus:border-brand-blue outline-none transition-all"
-                      placeholder="10-digit mobile number"
-                    />
-                  </div>
-                </div>
 
-                <div className="pt-4 flex gap-3">
-                  <Button type="button" variant="outline" className="flex-1" onClick={onClose}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" variant="primary" className="flex-1" disabled={loading}>
-                    {loading ? "Saving..." : "Save Student"}
-                  </Button>
-                </div>
-              </form>
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium text-slate-700">Parent Mobile</label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                          <Phone size={18} />
+                        </div>
+                        <input
+                          type="tel"
+                          value={parentMobile}
+                          onChange={(e) => setParentMobile(e.target.value)}
+                          className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-blue/50 focus:border-brand-blue outline-none transition-all"
+                          placeholder="10-digit mobile number"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium text-slate-700">Date of Birth</label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                          <Calendar size={18} />
+                        </div>
+                        <input
+                          type="date"
+                          value={dateOfBirth}
+                          onChange={(e) => setDateOfBirth(e.target.value)}
+                          className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-blue/50 focus:border-brand-blue outline-none transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium text-slate-700">Gender</label>
+                      <select
+                        value={gender}
+                        onChange={(e) => setGender(e.target.value)}
+                        className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-blue/50 focus:border-brand-blue outline-none transition-all appearance-none bg-white"
+                      >
+                        <option value="" disabled>Select Gender</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1 md:col-span-2">
+                      <label className="text-sm font-medium text-slate-700">Batch</label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                          <GraduationCap size={18} />
+                        </div>
+                        <select
+                          value={batch}
+                          onChange={(e) => setBatch(e.target.value)}
+                          className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-blue/50 focus:border-brand-blue outline-none transition-all appearance-none bg-white"
+                        >
+                          <option value="" disabled>Select Batch</option>
+                          <option value="11th IIT-JEE Integrated">11th IIT-JEE Integrated</option>
+                          <option value="12th IIT-JEE Integrated">12th IIT-JEE Integrated</option>
+                          <option value="11th NEET Integrated">11th NEET Integrated</option>
+                          <option value="12th NEET Integrated">12th NEET Integrated</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </form>
+              </div>
+
+              <div className="p-6 border-t border-slate-100 flex gap-3 shrink-0">
+                <Button type="button" variant="outline" className="flex-1" onClick={onClose}>
+                  Cancel
+                </Button>
+                <Button type="submit" form="student-form" variant="primary" className="flex-1" disabled={loading}>
+                  {loading ? "Saving..." : "Save Student"}
+                </Button>
+              </div>
             </motion.div>
           </div>
         </>
@@ -192,5 +288,3 @@ export function StudentFormModal({ isOpen, onClose, onSuccess, student }: Props)
     </AnimatePresence>
   );
 }
-
-

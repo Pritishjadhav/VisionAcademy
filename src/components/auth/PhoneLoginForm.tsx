@@ -46,11 +46,20 @@ export function PhoneLoginForm({ type, onBack, onSuccess }: Props) {
     setLoading(true);
     
     try {
+      const formattedMobile = mobile.startsWith("+91") ? mobile : `+91${mobile}`;
+      const userExistsResult = await checkUserExistsByMobile(formattedMobile, type as 'student' | 'parent');
+      
+      if (!userExistsResult.exists) {
+        toast.error(`This mobile number is not registered as a ${type}.`);
+        setLoading(false);
+        return;
+      }
+
       const email = getSyntheticEmail(mobile);
       await signInWithEmailAndPassword(auth, email, password);
       toast.success("Login Successful! Redirecting to your dashboard...");
       onSuccess();
-    } catch (_error: unknown) {
+    } catch {
       toast.error("Invalid mobile number or password.");
       setLoading(false);
     }

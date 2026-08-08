@@ -141,7 +141,7 @@ export function AdminManagement() {
               className="px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-blue/50 focus:border-brand-blue outline-none w-full sm:w-64"
               required
             />
-            <Button type="submit" variant="primary" disabled={isAdding}>
+            <Button type="submit" variant="gradient" disabled={isAdding}>
               <Plus size={18} className="sm:mr-2" />
               <span className="hidden sm:inline">Add Admin</span>
             </Button>

@@ -2,7 +2,7 @@
 
 import { adminAuth, adminDb } from "@/lib/firebase/admin";
 
-export async function createStudentUser(data: { name: string, mobile: string, parentMobile: string }) {
+export async function createStudentUser(data: { name: string, mobile: string, parentMobile: string, email?: string, gender?: string, dateOfBirth?: string, batch?: string }) {
   try {
     // Generate synthetic email
     const cleanMobile = data.mobile.replace(/[^0-9]/g, '');
@@ -10,7 +10,7 @@ export async function createStudentUser(data: { name: string, mobile: string, pa
     const formattedMobile = `+91${mobileWithoutCode}`;
     const formattedParentMobile = data.parentMobile ? `+91${data.parentMobile.replace(/[^0-9]/g, '').replace(/^91/, '')}` : "";
     
-    const email = `${mobileWithoutCode}@visionacademy.com`;
+    const email = data.email || `${mobileWithoutCode}@visionacademy.com`;
     const password = mobileWithoutCode; // Default password is the 10-digit mobile number
 
     let userRecord;
@@ -33,6 +33,10 @@ export async function createStudentUser(data: { name: string, mobile: string, pa
       name: data.name,
       mobile: formattedMobile,
       parentMobile: formattedParentMobile,
+      email: data.email || "",
+      gender: data.gender || "",
+      dateOfBirth: data.dateOfBirth || "",
+      batch: data.batch || "",
       role: "student",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),

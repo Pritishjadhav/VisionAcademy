@@ -12,6 +12,8 @@
   --animate-marquee-right: marquee-right 30s linear infinite;
 }
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @keyframes marquee-left {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
