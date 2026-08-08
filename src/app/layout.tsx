@@ -22,7 +22,7 @@ export default function RootLayout({
     children: React.ReactNode;
 }>) {
     // Check if Firebase env vars are missing (which happens often on Vercel deployments)
-    const isMissingEnvVars = !process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+    const isMissingEnvVars = !process.env.NEXT_PUBLIC_FIREBASE_API_KEY || !process.env.FIREBASE_PRIVATE_KEY;
 
     if (isMissingEnvVars) {
         return (
