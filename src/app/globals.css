@@ -6,7 +6,7 @@
   --color-brand-orange: #f97316;
   --color-brand-orange-light: #fb923c;
   
-  --font-sans: var(--font-inter);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   
   --animate-marquee-left: marquee-left 30s linear infinite;
   --animate-marquee-right: marquee-right 30s linear infinite;
@@ -41,6 +41,10 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+input, textarea, button, select {
+  font-family: inherit;
 }
 
 /* Custom scrollbar */
