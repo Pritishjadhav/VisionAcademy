@@ -55,7 +55,7 @@ export default function StudentDetailsPage() {
     }
     
     // Verify authorization
-    if (!dbUser.studentIds?.includes(studentId)) {
+    if (!(dbUser.studentIds as string[])?.includes(studentId)) {
       router.replace("/parent/dashboard");
       return;
     }
