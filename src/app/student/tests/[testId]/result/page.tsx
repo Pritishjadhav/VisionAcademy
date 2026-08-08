@@ -6,7 +6,7 @@ import { collection, query, where, getDocs, doc, getDoc } from "firebase/firesto
 import { db } from "@/lib/firebase/config";
 import { useAuth } from "@/context/AuthContext";
 import { Test, TestResult } from "@/lib/types/test";
-import { Loader2, ArrowLeft, Trophy, CheckCircle2, XCircle, AlertCircle, Clock } from "lucide-react";
+import { Loader2, ArrowLeft, Trophy, CheckCircle2, XCircle, AlertCircle, Clock, BarChart as BarChartIcon } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import toast from "react-hot-toast";
@@ -103,7 +103,7 @@ export default function StudentResultPage() {
         
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex items-center gap-4">
           <div className="w-14 h-14 rounded-xl bg-orange-50 text-brand-orange flex items-center justify-center">
-            <BarChart size={28} />
+            <BarChartIcon size={28} />
           </div>
           <div>
             <p className="text-sm font-medium text-slate-500">Percentage</p>

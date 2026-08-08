@@ -93,17 +93,17 @@ export default function StudentReviewPage() {
 
           if (q.questionType === 'MCQ') {
             isAttempted = !!ans?.selectedOption;
-            if (isAttempted) isCorrect = ans.selectedOption === q.correctOption;
+            isCorrect = isAttempted && ans?.selectedOption === q.correctOption;
           } else if (q.questionType === 'MSQ') {
             isAttempted = !!ans?.selectedOptions && ans.selectedOptions.length > 0;
-            if (isAttempted) {
-              const sortedAns = [...ans.selectedOptions!].sort();
+            if (isAttempted && ans?.selectedOptions) {
+              const sortedAns = [...ans.selectedOptions].sort();
               const sortedCorr = [...(q.correctOptions || [])].sort();
               isCorrect = JSON.stringify(sortedAns) === JSON.stringify(sortedCorr);
             }
           } else if (q.questionType === 'Integer') {
             isAttempted = ans?.enteredInteger !== undefined && ans?.enteredInteger !== null;
-            if (isAttempted) isCorrect = ans.enteredInteger === q.correctInteger;
+            isCorrect = isAttempted && ans?.enteredInteger === q.correctInteger;
           }
 
           const statusColor = !studentAnswers ? 'border-slate-300' : !isAttempted ? 'border-slate-300' : isCorrect ? 'border-green-400' : 'border-red-400';
