@@ -540,7 +540,7 @@ export default function LiveTestPage() {
       <header className="bg-white dark:bg-slate-800 shadow-sm border-b border-slate-200 dark:border-slate-700 px-4 py-3 flex items-center justify-between shrink-0 transition-colors">
         <div>
           <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">{test.testName}</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Candidate: <span className="text-brand-blue dark:text-brand-orange">{dbUser?.name}</span></p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Candidate: <span className="text-brand-blue dark:text-brand-orange">{(dbUser?.name as string) || "Unknown"}</span></p>
         </div>
         <div className="flex items-center gap-6">
           <button

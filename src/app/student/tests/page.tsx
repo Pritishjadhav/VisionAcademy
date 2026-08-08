@@ -197,7 +197,7 @@ export default function StudentTestsPage() {
     <div className="space-y-10 max-w-7xl mx-auto py-8 px-4 sm:px-6">
       <div>
         <h1 className="text-3xl font-bold text-slate-900">Online Tests</h1>
-        <p className="text-slate-500">View and manage your tests for {dbUser?.batch}</p>
+        <p className="text-slate-500">View and manage your tests for {(dbUser?.batch as string)}</p>
       </div>
 
       {tests.length === 0 ? (

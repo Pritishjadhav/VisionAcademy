@@ -64,7 +64,7 @@ export default function StudentDashboard() {
   // Construct a student object for the history modal to consume
   const currentStudent = {
     id: user.uid,
-    name: dbUser?.name || "Student"
+    name: (dbUser?.name as string) || "Student"
   };
 
   return (
@@ -72,7 +72,7 @@ export default function StudentDashboard() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-slate-900">Student Dashboard</h1>
         <p className="text-slate-500 text-lg">
-          Welcome to your dashboard, <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-brand-orange to-brand-blue">{dbUser?.name || "Student"}</span>.
+          Welcome to your dashboard, <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-brand-orange to-brand-blue">{(dbUser?.name as string) || "Student"}</span>.
         </p>
       </div>
       
