@@ -59,8 +59,9 @@ export function PhoneLoginForm({ type, onBack, onSuccess }: Props) {
       await signInWithEmailAndPassword(auth, email, password);
       toast.success("Login Successful! Redirecting to your dashboard...");
       onSuccess();
-    } catch {
-      toast.error("Invalid mobile number or password.");
+    } catch (error: any) {
+      toast.error(error?.message || "Invalid mobile number or password.");
+      console.error("Login error:", error);
       setLoading(false);
     }
   };
