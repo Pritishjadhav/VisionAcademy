@@ -298,13 +298,13 @@ export default function StudentDetailsPage() {
                           </span>
                           <span className="flex items-center gap-1.5">
                             <Clock size={14} />
-                            {formatTime(result.timeSpent)}
+                            {formatTime(result.timeTaken)}
                           </span>
                         </div>
                       </div>
                       <div className="flex gap-4 md:border-l md:border-slate-100 md:pl-6 shrink-0">
                         <div className="text-center">
-                          <div className="text-2xl font-bold text-brand-blue">{result.score}</div>
+                          <div className="text-2xl font-bold text-brand-blue">{result.marksObtained}</div>
                           <div className="text-xs font-medium text-slate-500">Score</div>
                         </div>
                         <div className="text-center">
