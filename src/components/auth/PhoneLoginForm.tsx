@@ -55,7 +55,7 @@ export function PhoneLoginForm({ type, onBack, onSuccess }: Props) {
         return;
       }
 
-      const email = getSyntheticEmail(mobile);
+      const email = userExistsResult.email || getSyntheticEmail(mobile);
       await signInWithEmailAndPassword(auth, email, password);
       toast.success("Login Successful! Redirecting to your dashboard...");
       onSuccess();

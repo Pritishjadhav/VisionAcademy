@@ -61,10 +61,10 @@ export default function StudentResultPage() {
   };
 
   const chartData = [
-    { name: 'Physics', accuracy: result.subjectWiseAccuracy.Physics, marks: result.subjectWiseMarks.Physics },
-    { name: 'Chemistry', accuracy: result.subjectWiseAccuracy.Chemistry, marks: result.subjectWiseMarks.Chemistry },
-    { name: 'Mathematics', accuracy: result.subjectWiseAccuracy.Mathematics, marks: result.subjectWiseMarks.Mathematics },
-    { name: 'Biology', accuracy: result.subjectWiseAccuracy.Biology, marks: result.subjectWiseMarks.Biology },
+    { name: 'Physics', accuracy: result.subjectWiseAccuracy?.Physics || 0, marks: result.subjectWiseMarks?.Physics || 0 },
+    { name: 'Chemistry', accuracy: result.subjectWiseAccuracy?.Chemistry || 0, marks: result.subjectWiseMarks?.Chemistry || 0 },
+    { name: 'Mathematics', accuracy: result.subjectWiseAccuracy?.Mathematics || 0, marks: result.subjectWiseMarks?.Mathematics || 0 },
+    { name: 'Biology', accuracy: result.subjectWiseAccuracy?.Biology || 0, marks: result.subjectWiseMarks?.Biology || 0 },
   ].filter(d => d.marks !== 0 || d.accuracy !== 0); // Only show subjects attempted/present in test
 
   return (

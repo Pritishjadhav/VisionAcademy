@@ -229,7 +229,13 @@ export async function checkUserExistsByMobile(mobile: string, type: 'student' | 
   try {
     const collectionName = type === 'student' ? 'students' : 'parents';
     const querySnapshot = await adminDb.collection(collectionName).where('mobile', '==', mobile).get();
-    return { exists: !querySnapshot.empty };
+    
+    if (querySnapshot.empty) {
+      return { exists: false };
+    }
+    
+    const userData = querySnapshot.docs[0].data();
+    return { exists: true, email: userData.email || null };
   } catch (error) {
     console.error("Error checking user existence:", error);
     return { exists: false, error: "Failed to check user existence" };
