@@ -247,7 +247,7 @@ export default function ManageQuestionsPage() {
                           ? 'bg-green-50 border-green-200 text-green-800 font-medium'
                           : 'bg-slate-50 border-slate-100'
                         }`}>
-                          <span className="font-bold mr-2">{opt}.</span> {q.options[opt as keyof typeof q.options]}
+                          <span className="font-bold mr-2">{opt}.</span> {q.options?.[opt as keyof typeof q.options]}
                         </div>
                       ))}
                     </div>
