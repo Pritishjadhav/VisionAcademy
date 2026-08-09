@@ -204,12 +204,21 @@ export default function StudentProfilePage({ params }: { params: Promise<{ batch
         <div className="flex-1">
           <h1 className="text-3xl font-bold text-slate-900 mb-2">{student.name}</h1>
           <div className="flex flex-wrap gap-4 text-slate-600">
-            <span className="flex items-center gap-2"><Phone size={16} className="text-slate-400"/> {student.mobile}</span>
+            <span className="flex items-center gap-2">
+              <Phone size={16} className="text-slate-400"/> 
+              <a href={`tel:${student.mobile}`} className="hover:text-brand-orange transition-colors">{student.mobile}</a>
+            </span>
             {student.parentMobile && (
-              <span className="flex items-center gap-2"><User size={16} className="text-slate-400"/> Parent: {student.parentMobile}</span>
+              <span className="flex items-center gap-2">
+                <User size={16} className="text-slate-400"/> Parent: 
+                <a href={`tel:${student.parentMobile}`} className="hover:text-brand-orange transition-colors">{student.parentMobile}</a>
+              </span>
             )}
             {student.email && (
-              <span className="flex items-center gap-2"><Mail size={16} className="text-slate-400"/> {student.email}</span>
+              <span className="flex items-center gap-2">
+                <Mail size={16} className="text-slate-400"/> 
+                <a href={`mailto:${student.email}`} className="hover:text-brand-orange transition-colors">{student.email}</a>
+              </span>
             )}
             <span className="flex items-center gap-2"><BookOpen size={16} className="text-slate-400"/> {student.batch || batchName}</span>
           </div>

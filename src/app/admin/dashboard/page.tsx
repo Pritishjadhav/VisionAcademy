@@ -69,11 +69,6 @@ export default function AdminDashboard() {
           <p className="text-slate-500">Select a batch to manage its students.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <Link href="/admin/dashboard/tests">
-            <Button variant="outline" className="bg-white border-brand-blue/20 text-brand-blue hover:bg-brand-blue/5">
-              Online Tests
-            </Button>
-          </Link>
           <Button 
             variant="gradient" 
             onClick={() => {

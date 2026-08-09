@@ -4,7 +4,7 @@ import { useState, useEffect, use } from "react";
 import { collection, onSnapshot, query, orderBy, where } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import { Button } from "@/components/ui/Button";
-import { Search, Trash2, Edit, Mail, Phone, ArrowLeft } from "lucide-react";
+import { Search, Trash2, Edit, Mail, Phone, ArrowLeft, User } from "lucide-react";
 import { StudentFormModal } from "@/components/admin/StudentFormModal";
 import { AttendanceManagerModal } from "@/components/admin/AttendanceManagerModal";
 import { StudentAttendanceHistoryModal } from "@/components/admin/StudentAttendanceHistoryModal";
@@ -142,8 +142,11 @@ export default function BatchPage({ params }: { params: Promise<{ batchId: strin
             <Button variant="outline" onClick={() => router.push(`/admin/dashboard/batch/${encodeURIComponent(batchName)}/scores`)}>
               All Test Scores
             </Button>
+            <Button variant="outline" onClick={() => router.push(`/admin/dashboard/tests?batch=${encodeURIComponent(batchName)}`)}>
+              Schedule Online Test
+            </Button>
             <Button variant="outline" onClick={() => router.push(`/admin/dashboard/batch/${encodeURIComponent(batchName)}/theory`)}>
-              Theory Marks
+              Add Theory Mark
             </Button>
             <Button variant="gradient" onClick={() => setIsAttendanceManagerOpen(true)}>
               Mark / Edit Attendance
@@ -196,27 +199,44 @@ export default function BatchPage({ params }: { params: Promise<{ batchId: strin
                   filteredStudents.map(student => (
                     <tr key={student.id} className="hover:bg-slate-50/50 transition-colors">
                       <td className="py-4 px-6">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${isUnassigned ? 'bg-slate-100 text-slate-500' : 'bg-brand-orange/10 text-brand-orange'}`}>
-                            {student.name.charAt(0).toUpperCase()}
+                        {isUnassigned ? (
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold bg-slate-100 text-slate-500">
+                              {student.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="font-medium text-slate-900">{student.name}</p>
+                              <p className="text-xs text-slate-500 flex items-center gap-1">
+                                {student.batch || "No batch selected"}
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-medium text-slate-900">{student.name}</p>
-                            <p className="text-xs text-slate-500 flex items-center gap-1">
-                              {isUnassigned ? (student.batch || "No batch selected") : (`${student.gender || "Not set"} • ${student.dateOfBirth || "No DOB"}`)}
-                            </p>
-                          </div>
-                        </div>
+                        ) : (
+                          <Link 
+                            href={`/admin/dashboard/batch/${encodeURIComponent(batchName)}/student/${student.id}`}
+                            className="flex items-center gap-3 group -ml-2 p-2 rounded-xl hover:bg-brand-blue/5 transition-colors"
+                          >
+                            <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold bg-brand-orange/10 text-brand-orange group-hover:bg-brand-orange group-hover:text-white transition-colors">
+                              {student.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="font-medium text-slate-900 group-hover:text-brand-blue transition-colors">{student.name}</p>
+                              <p className="text-xs text-slate-500 flex items-center gap-1">
+                                {`${student.gender || "Not set"} • ${student.dateOfBirth || "No DOB"}`}
+                              </p>
+                            </div>
+                          </Link>
+                        )}
                       </td>
                       <td className="py-4 px-6">
                         <div className="text-sm text-slate-600 flex items-center gap-2">
                           <Phone size={14} className="text-slate-400" />
-                          {student.mobile}
+                          <a href={`tel:${student.mobile}`} className="hover:text-brand-orange transition-colors">{student.mobile}</a>
                         </div>
                         {student.email && !student.email.includes("@visionacademy.com") && (
                           <div className="text-sm text-slate-600 flex items-center gap-2 mt-1">
                             <Mail size={14} className="text-slate-400" />
-                            {student.email}
+                            <a href={`mailto:${student.email}`} className="hover:text-brand-orange transition-colors">{student.email}</a>
                           </div>
                         )}
                       </td>
@@ -224,7 +244,7 @@ export default function BatchPage({ params }: { params: Promise<{ batchId: strin
                         {student.parentMobile ? (
                           <span className="flex items-center gap-2">
                             <Phone size={14} className="text-slate-400" />
-                            {student.parentMobile}
+                            <a href={`tel:${student.parentMobile}`} className="hover:text-brand-orange transition-colors">{student.parentMobile}</a>
                           </span>
                         ) : "-"}
                       </td>
@@ -255,10 +275,10 @@ export default function BatchPage({ params }: { params: Promise<{ batchId: strin
                           {!isUnassigned && (
                             <Link 
                               href={`/admin/dashboard/batch/${encodeURIComponent(batchName)}/student/${student.id}`}
-                              className="p-2 text-slate-400 hover:text-brand-orange hover:bg-brand-orange/10 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
+                              className="px-3 py-1.5 bg-brand-blue/10 text-brand-blue hover:bg-brand-blue/20 border border-brand-blue/20 hover:border-brand-blue/30 rounded-lg transition-all flex items-center gap-1.5 text-sm font-semibold shadow-sm"
                               title="View Full Profile"
                             >
-                              Profile
+                              <User size={14} /> Profile
                             </Link>
                           )}
                           <button 

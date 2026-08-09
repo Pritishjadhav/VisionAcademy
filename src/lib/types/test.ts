@@ -37,7 +37,6 @@ export interface Test {
   endTime: string; // HH:mm format
   totalDuration: number; // in minutes
   totalMarks: number;
-  passingMarks: number;
   negativeMarkingEnabled: boolean;
   marksPerCorrectAnswer: number;
   marksPerWrongAnswer: number;

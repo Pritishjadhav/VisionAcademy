@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import { Button } from "@/components/ui/Button";
 import { ArrowLeft, Loader2, Save } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import { Suspense, useEffect } from "react";
 
 const BATCHES = [
   "11th IIT-JEE Integrated",
@@ -16,23 +17,31 @@ const BATCHES = [
   "12th NEET Integrated"
 ];
 
-export default function ScheduleTestPage() {
+function ScheduleTestContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const batchFilter = searchParams.get("batch");
+
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     testName: "",
     description: "",
-    batch: BATCHES[0],
+    batch: batchFilter || BATCHES[0],
     testDate: "",
     startTime: "",
     endTime: "",
     totalMarks: 0,
-    passingMarks: 0,
     negativeMarkingEnabled: true,
     marksPerCorrectAnswer: 4,
     marksPerWrongAnswer: 1,
     instructions: "Please read all instructions carefully before starting the test."
   });
+
+  useEffect(() => {
+    if (batchFilter) {
+      setFormData(prev => ({ ...prev, batch: batchFilter }));
+    }
+  }, [batchFilter]);
 
   const calculateDuration = () => {
     if (!formData.startTime || !formData.endTime) return 0;
@@ -108,8 +117,9 @@ export default function ScheduleTestPage() {
               <label className="text-sm font-medium text-slate-700">Batch *</label>
               <select 
                 value={formData.batch}
+                disabled={!!batchFilter}
                 onChange={e => setFormData(prev => ({ ...prev, batch: e.target.value }))}
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-all"
+                className={`w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-all ${!!batchFilter ? 'opacity-70 cursor-not-allowed' : ''}`}
               >
                 {BATCHES.map(b => (
                   <option key={b} value={b}>{b}</option>
@@ -184,18 +194,6 @@ export default function ScheduleTestPage() {
                 className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-all"
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Passing Marks *</label>
-              <input 
-                type="number" 
-                required 
-                min="0"
-                value={formData.passingMarks}
-                onChange={e => setFormData(prev => ({ ...prev, passingMarks: Number(e.target.value) }))}
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-all"
-              />
-            </div>
-            
             <div className="md:col-span-2 pt-2">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input 
@@ -259,5 +257,13 @@ export default function ScheduleTestPage() {
         </div>
       </form>
     </div>
+  );
+}
+
+export default function ScheduleTestPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-slate-500">Loading...</div>}>
+      <ScheduleTestContent />
+    </Suspense>
   );
 }

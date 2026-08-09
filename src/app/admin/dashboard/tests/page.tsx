@@ -1,25 +1,36 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, where } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import { Button } from "@/components/ui/Button";
-import { Plus, FileText, Calendar, Users, BarChart, ShieldAlert } from "lucide-react";
+import { Plus, FileText, Calendar, Users, BarChart, ShieldAlert, Trash2 } from "lucide-react";
 import Link from "next/link";
+import toast from "react-hot-toast";
+import { useSearchParams } from "next/navigation";
 import { Test } from "@/lib/types/test";
 import { format } from "date-fns";
+import { Suspense } from "react";
 
-export default function AdminTestsPage() {
+function AdminTestsContent() {
   const [tests, setTests] = useState<Test[]>([]);
   const [loading, setLoading] = useState(true);
+  const searchParams = useSearchParams();
+  const batchFilter = searchParams.get("batch");
 
   useEffect(() => {
     const q = query(collection(db, "tests"), orderBy("createdAt", "desc"));
+    
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({
+      let data = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Test[];
+
+      if (batchFilter) {
+        data = data.filter(t => t.batch === batchFilter);
+      }
+
       setTests(data);
       setLoading(false);
     });
@@ -27,14 +38,32 @@ export default function AdminTestsPage() {
     return () => unsubscribe();
   }, []);
 
+  const handleDeleteTest = async (testId: string) => {
+    if (!confirm("Are you sure you want to delete this test? All questions and student results will be permanently removed. This action cannot be undone.")) return;
+    
+    try {
+      const { deleteTest } = await import("@/actions/tests");
+      const result = await deleteTest(testId);
+      if (result.success) {
+        toast.success("Test completely deleted.");
+      } else {
+        toast.error(result.error || "Failed to delete test.");
+      }
+    } catch (error) {
+      toast.error("An error occurred while deleting the test.");
+    }
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Online Tests</h1>
+          <h1 className="text-3xl font-bold text-slate-900">
+            {batchFilter ? `${batchFilter} - Online Tests` : "Online Tests"}
+          </h1>
           <p className="text-slate-500">Manage all online tests and view analytics.</p>
         </div>
-        <Link href="/admin/dashboard/tests/schedule">
+        <Link href={batchFilter ? `/admin/dashboard/tests/schedule?batch=${encodeURIComponent(batchFilter)}` : "/admin/dashboard/tests/schedule"}>
           <Button variant="gradient">
             <Plus size={18} />
             Schedule New Test
@@ -53,7 +82,7 @@ export default function AdminTestsPage() {
           </div>
           <h3 className="text-xl font-bold text-slate-900 mb-2">No tests scheduled yet</h3>
           <p className="text-slate-500 mb-6 max-w-md">Create your first online test to start evaluating students.</p>
-          <Link href="/admin/dashboard/tests/schedule">
+          <Link href={batchFilter ? `/admin/dashboard/tests/schedule?batch=${encodeURIComponent(batchFilter)}` : "/admin/dashboard/tests/schedule"}>
             <Button variant="outline" className="border-brand-blue text-brand-blue">
               Schedule Test
             </Button>
@@ -66,7 +95,7 @@ export default function AdminTestsPage() {
               <div className={`h-2 ${test.status === 'Published' ? 'bg-green-500' : 'bg-slate-300'}`} />
               <div className="p-6 flex flex-col flex-1">
                 <div className="flex justify-between items-start mb-4">
-                  <div>
+                  <div className="flex-1">
                     <h3 className="text-xl font-bold text-slate-900 line-clamp-1" title={test.testName}>{test.testName}</h3>
                     <div className="flex items-center gap-2 mt-2">
                       <span className={`text-xs px-2 py-1 rounded-full font-medium ${test.status === 'Published' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-700'}`}>
@@ -77,6 +106,13 @@ export default function AdminTestsPage() {
                       </span>
                     </div>
                   </div>
+                  <button 
+                    onClick={() => handleDeleteTest(test.id)}
+                    className="text-slate-400 hover:text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors ml-2 shrink-0"
+                    title="Delete Test"
+                  >
+                    <Trash2 size={18} />
+                  </button>
                 </div>
 
                 <div className="space-y-3 mb-6 flex-1">
@@ -113,5 +149,13 @@ export default function AdminTestsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function AdminTestsPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-slate-500">Loading...</div>}>
+      <AdminTestsContent />
+    </Suspense>
   );
 }

@@ -170,7 +170,11 @@ export function AdminManagement() {
               ) : (
                 filteredAdmins.map(admin => (
                   <tr key={admin.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="py-4 px-6 font-medium text-slate-900">{admin.email}</td>
+                    <td className="py-4 px-6 font-medium text-slate-900">
+                      <a href={`mailto:${admin.email}`} className="hover:text-brand-orange transition-colors">
+                        {admin.email}
+                      </a>
+                    </td>
                     <td className="py-4 px-6">
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                         admin.role === 'super_admin' ? 'bg-brand-orange/10 text-brand-orange' : 'bg-brand-blue/10 text-brand-blue'
