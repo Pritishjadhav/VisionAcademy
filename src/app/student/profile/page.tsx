@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { db } from "@/lib/firebase/config";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { linkParentAccount } from "@/actions/users";
 import { Button } from "@/components/ui/Button";
 import { Loader2, User, Mail, Phone, Calendar, Users, GraduationCap, Edit2, Save } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -86,7 +87,7 @@ export default function StudentProfilePage() {
     if (!user) return;
     
     // Validation
-    if (!formData.name || !formData.gender || !formData.dateOfBirth || !formData.mobile || !formData.email || !formData.batch) {
+    if (!formData.name || !formData.gender || !formData.dateOfBirth || !formData.mobile || !formData.batch) {
       toast.error("Please fill in all required fields.");
       return;
     }
@@ -94,10 +95,25 @@ export default function StudentProfilePage() {
     setSaving(true);
     try {
       const docRef = doc(db, "students", user.uid);
-      await updateDoc(docRef, {
+      const oldDoc = await getDoc(docRef);
+      const oldParentMobile = oldDoc.exists() ? oldDoc.data().parentMobile : "";
+
+      const formattedParentMobile = formData.parentMobile 
+        ? (formData.parentMobile.startsWith("+91") ? formData.parentMobile : `+91${formData.parentMobile}`) 
+        : "";
+
+      const dataToUpdate = {
         ...formData,
+        parentMobile: formattedParentMobile,
         updatedAt: new Date().toISOString(),
-      });
+      };
+
+      await updateDoc(docRef, dataToUpdate);
+      
+      // If parent mobile changed or was added, try to link/create the parent account
+      if (formattedParentMobile && formattedParentMobile !== oldParentMobile) {
+        await linkParentAccount(user.uid, formData.name, formattedParentMobile);
+      }
       
       toast.success(isEditing && formData.batch ? "Profile updated successfully." : "Your profile has been saved successfully.");
       setIsEditing(false);
@@ -159,7 +175,7 @@ export default function StudentProfilePage() {
 
               {/* Email Address */}
               <div className="space-y-1">
-                <label className="text-sm font-medium text-slate-700">Email Address *</label>
+                <label className="text-sm font-medium text-slate-700">Email Address</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                     <Mail size={18} />
@@ -172,7 +188,6 @@ export default function StudentProfilePage() {
                     disabled={!isEditing}
                     className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-blue/50 focus:border-brand-blue outline-none transition-all disabled:bg-slate-50 disabled:text-slate-500"
                     placeholder="Enter your email"
-                    required
                   />
                 </div>
               </div>

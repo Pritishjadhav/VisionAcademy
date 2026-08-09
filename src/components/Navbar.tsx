@@ -31,9 +31,11 @@ export function Navbar() {
 
   const getInitials = (name?: string) => {
     if (!name) return "U";
-    const parts = name.trim().split(" ");
+    const parts = name.trim().split(/\s+/);
     if (parts.length >= 2) {
-      return (parts[0][0] + parts[1][0]).toUpperCase();
+      const first = parts[0][0];
+      const last = parts[parts.length - 1][0];
+      return (first + last).toUpperCase();
     }
     return name.substring(0, 2).toUpperCase();
   };

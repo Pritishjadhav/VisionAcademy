@@ -4,10 +4,12 @@ import { useState, useEffect, use } from "react";
 import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import { Button } from "@/components/ui/Button";
-import { ArrowLeft, User, Phone, Mail, Calendar, BookOpen, FileText, CheckCircle, XCircle, Loader2, BarChart } from "lucide-react";
+import { ArrowLeft, User, Phone, Mail, Calendar, BookOpen, FileText, CheckCircle, XCircle, Loader2, BarChart, DollarSign, Plus, Edit3 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { EditTotalFeesModal } from "@/components/admin/EditTotalFeesModal";
+import { FeePaymentModal, FeePayment } from "@/components/admin/FeePaymentModal";
 
 interface Student {
   id: string;
@@ -18,6 +20,7 @@ interface Student {
   gender?: string;
   dateOfBirth?: string;
   batch?: string;
+  totalFees?: number;
 }
 
 interface TestScore {
@@ -47,7 +50,11 @@ export default function StudentProfilePage({ params }: { params: Promise<{ batch
   const [student, setStudent] = useState<Student | null>(null);
   const [scores, setScores] = useState<TestScore[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
+  const [feePayments, setFeePayments] = useState<FeePayment[]>([]);
   const [activeTab, setActiveTab] = useState<"all" | "theory" | "online">("all");
+  
+  const [isEditFeesOpen, setIsEditFeesOpen] = useState(false);
+  const [isAddPaymentOpen, setIsAddPaymentOpen] = useState(false);
 
   useEffect(() => {
     async function fetchProfileData() {
@@ -130,6 +137,13 @@ export default function StudentProfilePage({ params }: { params: Promise<{ batch
         finalScores.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
         setScores(finalScores);
 
+        // 5. Fetch Fee Payments
+        const feesQ = query(collection(db, "feePayments"), where("studentId", "==", studentId));
+        const feesSnap = await getDocs(feesQ);
+        const feesData = feesSnap.docs.map(d => ({ id: d.id, ...d.data() } as FeePayment));
+        feesData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        setFeePayments(feesData);
+
       } catch (error) {
         console.error("Error fetching profile:", error);
         toast.error("Failed to load profile data");
@@ -178,6 +192,10 @@ export default function StudentProfilePage({ params }: { params: Promise<{ batch
   } else if (activeTab === "online") {
     displayScores = scores.filter(s => s.type === "online");
   }
+
+  const totalFeesPaid = feePayments.reduce((sum, p) => sum + p.amount, 0);
+  const totalFees = student.totalFees || 0;
+  const remainingFees = Math.max(0, totalFees - totalFeesPaid);
 
   // Prepare chart data (format date for display)
   const chartData = displayScores.map(s => ({
@@ -395,9 +413,86 @@ export default function StudentProfilePage({ params }: { params: Promise<{ batch
               </div>
             )}
           </div>
+
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                <DollarSign className="text-brand-blue" />
+                Fees Management
+              </h2>
+            </div>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 relative group">
+                  <p className="text-xs text-slate-500 font-medium mb-1">Total Fees</p>
+                  <p className="text-lg font-bold text-slate-900">₹{totalFees.toLocaleString()}</p>
+                  <button 
+                    onClick={() => setIsEditFeesOpen(true)}
+                    className="absolute top-3 right-3 p-1.5 text-slate-400 hover:text-brand-blue bg-white rounded-md shadow-sm opacity-0 group-hover:opacity-100 transition-all border border-slate-100"
+                    title="Edit Total Fees"
+                  >
+                    <Edit3 size={14} />
+                  </button>
+                </div>
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                  <p className="text-xs text-slate-500 font-medium mb-1">Paid</p>
+                  <p className="text-lg font-bold text-green-600">₹{totalFeesPaid.toLocaleString()}</p>
+                </div>
+              </div>
+
+              <div className="bg-orange-50 p-4 rounded-xl border border-orange-100 flex justify-between items-center">
+                <div>
+                  <p className="text-xs text-orange-600/80 font-medium mb-1">Remaining</p>
+                  <p className="text-lg font-bold text-brand-orange">₹{remainingFees.toLocaleString()}</p>
+                </div>
+                <Button variant="gradient" size="sm" onClick={() => setIsAddPaymentOpen(true)}>
+                  <Plus size={16} /> Pay
+                </Button>
+              </div>
+
+              {feePayments.length > 0 && (
+                <div className="mt-6 pt-6 border-t border-slate-100">
+                  <h3 className="text-sm font-bold text-slate-900 mb-3">Recent Payments</h3>
+                  <div className="space-y-3">
+                    {feePayments.slice(0, 5).map(payment => (
+                      <div key={payment.id} className="p-3 bg-white border border-slate-100 rounded-lg shadow-sm flex justify-between items-center">
+                        <div>
+                          <p className="font-bold text-slate-900">₹{payment.amount.toLocaleString()}</p>
+                          <p className="text-xs text-slate-500">{new Date(payment.date).toLocaleDateString()}</p>
+                        </div>
+                        {payment.receiptNo && (
+                          <span className="text-xs font-medium px-2 py-1 bg-slate-100 text-slate-600 rounded">
+                            {payment.receiptNo}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
       </div>
+
+      <EditTotalFeesModal
+        isOpen={isEditFeesOpen}
+        onClose={() => setIsEditFeesOpen(false)}
+        studentId={student.id}
+        studentName={student.name}
+        currentTotalFees={student.totalFees}
+        onSuccess={(newTotal) => setStudent({ ...student, totalFees: newTotal })}
+      />
+
+      <FeePaymentModal
+        isOpen={isAddPaymentOpen}
+        onClose={() => setIsAddPaymentOpen(false)}
+        studentId={student.id}
+        studentName={student.name}
+        onSuccess={(payment) => setFeePayments([payment, ...feePayments])}
+      />
     </div>
   );
 }

@@ -123,7 +123,7 @@ export function HeroSection() {
             className="text-left"
           >
             <div className="inline-block mb-6 px-5 py-2 rounded-full bg-brand-blue/10 border border-brand-blue/20 text-brand-blue font-bold text-sm backdrop-blur-md shadow-sm">
-              🚀 Admissions Open for 2024-25 Batch
+              ✨ Igniting Minds, Shaping Futures
             </div>
 
             <h1

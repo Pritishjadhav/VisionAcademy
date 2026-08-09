@@ -28,8 +28,12 @@ export function AdminLoginForm({ onBack, onSuccess }: Props) {
       await signInWithEmailAndPassword(auth, email, password);
       toast.success("Login Successful! Redirecting to your dashboard...");
       onSuccess();
-    } catch (error) {
-      toast.error((error as Error).message || "Failed to login");
+    } catch (error: any) {
+      if (error.code === 'auth/invalid-credential') {
+        toast.error("Invalid email or password");
+      } else {
+        toast.error(error.message || "Failed to login");
+      }
       setLoading(false);
     }
   };

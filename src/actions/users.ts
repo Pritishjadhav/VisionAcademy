@@ -6,7 +6,7 @@ export async function createStudentUser(data: { name: string, mobile: string, pa
   try {
     // Generate synthetic email
     const cleanMobile = data.mobile.replace(/[^0-9]/g, '');
-    const mobileWithoutCode = cleanMobile.startsWith('91') ? cleanMobile.substring(2) : cleanMobile;
+    const mobileWithoutCode = cleanMobile.startsWith('91') && cleanMobile.length > 10 ? cleanMobile.substring(2) : cleanMobile;
     const formattedMobile = `+91${mobileWithoutCode}`;
     const formattedParentMobile = data.parentMobile ? `+91${data.parentMobile.replace(/[^0-9]/g, '').replace(/^91/, '')}` : "";
     
@@ -234,10 +234,91 @@ export async function checkUserExistsByMobile(mobile: string, type: 'student' | 
       return { exists: false };
     }
     
-    const userData = querySnapshot.docs[0].data();
-    return { exists: true, email: userData.email || null };
+    const userDoc = querySnapshot.docs[0];
+    const uid = userDoc.id;
+    const userData = userDoc.data();
+    
+    try {
+      // Fetch the actual auth user to get their true login email
+      const authUser = await adminAuth.getUser(uid);
+      return { exists: true, email: authUser.email || userData.email || null };
+    } catch (authError) {
+      // Fallback to firestore email if auth fetch fails
+      return { exists: true, email: userData.email || null };
+    }
   } catch (error) {
     console.error("Error checking user existence:", error);
     return { exists: false, error: "Failed to check user existence" };
+  }
+}
+
+export async function linkParentAccount(studentUid: string, studentName: string, parentMobile: string) {
+  if (!parentMobile) return { success: false, error: "No parent mobile provided" };
+  
+  try {
+    const formattedParentMobile = parentMobile.startsWith('+91') ? parentMobile : `+91${parentMobile.replace(/[^0-9]/g, '')}`;
+    const parentMobileWithoutCode = formattedParentMobile.replace('+91', '');
+    const parentEmail = `${parentMobileWithoutCode}@visionacademy.com`;
+    const parentPassword = parentMobileWithoutCode;
+    
+    let parentUid;
+    
+    try {
+      // Try to create the parent auth user
+      const parentRecord = await adminAuth.createUser({
+        email: parentEmail,
+        password: parentPassword,
+        displayName: "Parent of " + studentName,
+      });
+      parentUid = parentRecord.uid;
+      
+      // Create new parent document
+      await adminDb.collection("parents").doc(parentUid).set({
+        mobile: formattedParentMobile,
+        studentIds: [studentUid],
+        role: "parent",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+      
+    } catch (parentAuthError: unknown) {
+      if (parentAuthError && typeof parentAuthError === 'object' && 'code' in parentAuthError && (parentAuthError as {code: string}).code === 'auth/email-already-exists') {
+        // Parent already exists in Auth, fetch their UID
+        const existingParent = await adminAuth.getUserByEmail(parentEmail);
+        parentUid = existingParent.uid;
+        
+        // Update their existing parent document
+        const parentDocRef = adminDb.collection("parents").doc(parentUid);
+        const parentDoc = await parentDocRef.get();
+        
+        if (parentDoc.exists) {
+          const parentData = parentDoc.data();
+          const currentStudentIds = parentData?.studentIds || [];
+          if (!currentStudentIds.includes(studentUid)) {
+            await parentDocRef.update({
+              studentIds: [...currentStudentIds, studentUid],
+              updatedAt: new Date().toISOString()
+            });
+          }
+        } else {
+          // Missing firestore doc, recreate it
+          await parentDocRef.set({
+            mobile: formattedParentMobile,
+            studentIds: [studentUid],
+            role: "parent",
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          });
+        }
+      } else {
+        console.error("Failed to create parent auth user:", parentAuthError);
+        throw parentAuthError;
+      }
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error("Error linking parent account:", error);
+    return { success: false, error: "Failed to link parent account" };
   }
 }

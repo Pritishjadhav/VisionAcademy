@@ -48,7 +48,12 @@ export function PhoneLoginForm({ type, onBack, onSuccess }: Props) {
     setLoading(true);
     
     try {
-      const formattedMobile = mobile.startsWith("+91") ? mobile : `+91${mobile}`;
+      let cleanInput = mobile.replace(/[^0-9]/g, '');
+      if (cleanInput.startsWith("91") && cleanInput.length > 10) {
+        cleanInput = cleanInput.substring(2);
+      }
+      const formattedMobile = `+91${cleanInput}`;
+      
       const userExistsResult = await checkUserExistsByMobile(formattedMobile, type as 'student' | 'parent');
       
       if (!userExistsResult.exists) {
@@ -57,13 +62,16 @@ export function PhoneLoginForm({ type, onBack, onSuccess }: Props) {
         return;
       }
 
-      const email = userExistsResult.email || getSyntheticEmail(mobile);
+      const email = userExistsResult.email || getSyntheticEmail(cleanInput);
       await signInWithEmailAndPassword(auth, email, password);
       toast.success("Login Successful! Redirecting to your dashboard...");
       onSuccess();
     } catch (error: any) {
-      toast.error(error?.message || "Invalid mobile number or password.");
-      console.error("Login error:", error);
+      if (error.code === 'auth/invalid-credential') {
+        toast.error("Invalid mobile number or password.");
+      } else {
+        toast.error(error?.message || "Invalid mobile number or password.");
+      }
       setLoading(false);
     }
   };
@@ -77,7 +85,11 @@ export function PhoneLoginForm({ type, onBack, onSuccess }: Props) {
 
     setLoading(true);
     try {
-      const formattedMobile = mobile.startsWith("+91") ? mobile : `+91${mobile}`;
+      let cleanInput = mobile.replace(/[^0-9]/g, '');
+      if (cleanInput.startsWith("91") && cleanInput.length > 10) {
+        cleanInput = cleanInput.substring(2);
+      }
+      const formattedMobile = `+91${cleanInput}`;
       
       const userExistsResult = await checkUserExistsByMobile(formattedMobile, type as 'student' | 'parent');
       

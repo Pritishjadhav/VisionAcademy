@@ -2,9 +2,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
-import { createStudentUser } from "@/actions/users";
+import { createStudentUser, linkParentAccount } from "@/actions/users";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, User, Phone, Mail, Calendar, GraduationCap } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -89,7 +89,16 @@ export function StudentFormModal({ isOpen, onClose, onSuccess, student }: Props)
 
       if (student) {
         // Edit existing
+        const oldDoc = await getDoc(doc(db, "students", student.id));
+        const oldParentMobile = oldDoc.exists() ? oldDoc.data().parentMobile : "";
+        
         await updateDoc(doc(db, "students", student.id), studentData);
+        
+        // If parent mobile changed or was added, try to link/create the parent account
+        if (formattedParentMobile && formattedParentMobile !== oldParentMobile) {
+          await linkParentAccount(student.id, name, formattedParentMobile);
+        }
+        
         toast.success("Student updated successfully");
       } else {
         // Add new

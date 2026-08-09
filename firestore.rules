@@ -117,6 +117,15 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/parents/$(request.auth.uid)) &&
         resource.data.studentId in get(/databases/$(database)/documents/parents/$(request.auth.uid)).data.studentIds;
     }
+
+    // Fee Payments Collection
+    match /feePayments/{paymentId} {
+      allow read, write: if isAdminOrSuperAdmin();
+      allow read: if isAuthenticated() && resource.data.studentId == request.auth.uid;
+      allow read: if isAuthenticated() && 
+        exists(/databases/$(database)/documents/parents/$(request.auth.uid)) &&
+        resource.data.studentId in get(/databases/$(database)/documents/parents/$(request.auth.uid)).data.studentIds;
+    }
     
     // Secure Test Mode Collections
     match /testAttempts/{attemptId} {

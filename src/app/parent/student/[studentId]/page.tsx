@@ -8,7 +8,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Test, TestResult } from "@/lib/types/test";
 import { 
   Loader2, ArrowLeft, Trophy, BarChart, CheckCircle2, Clock, 
-  Calendar, FileText, User, XCircle, Calendar as CalendarIcon 
+  Calendar, FileText, User, XCircle, Calendar as CalendarIcon, DollarSign
 } from "lucide-react";
 import Link from "next/link";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
@@ -35,17 +35,29 @@ interface TheoryMark {
   createdAt: string;
 }
 
+interface FeePayment {
+  id?: string;
+  studentId: string;
+  amount: number;
+  date: string;
+  receiptNo: string;
+  remarks: string;
+  createdAt?: string;
+}
+
 export default function StudentDetailsPage() {
   const { studentId } = useParams() as { studentId: string };
   const router = useRouter();
   const { user, dbUser } = useAuth();
   
-  const [activeTab, setActiveTab] = useState<"attendance" | "tests" | "theory">("attendance");
+  const [activeTab, setActiveTab] = useState<"attendance" | "tests" | "theory" | "fees">("attendance");
   const [studentName, setStudentName] = useState("");
   const [studentBatch, setStudentBatch] = useState("");
+  const [totalFees, setTotalFees] = useState(0);
   const [results, setResults] = useState<ExtendedTestResult[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [theoryMarks, setTheoryMarks] = useState<TheoryMark[]>([]);
+  const [feePayments, setFeePayments] = useState<FeePayment[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -63,8 +75,10 @@ export default function StudentDetailsPage() {
     // Get student info once
     getDoc(doc(db, "students", studentId)).then(stuSnap => {
       if (stuSnap.exists()) {
-        setStudentName(stuSnap.data().name);
-        setStudentBatch(stuSnap.data().batch);
+        const data = stuSnap.data();
+        setStudentName(data.name);
+        setStudentBatch(data.batch);
+        setTotalFees(data.totalFees || 0);
       }
     });
 
@@ -137,10 +151,27 @@ export default function StudentDetailsPage() {
       setTheoryMarks(fetchedMarks);
     });
     
+    // Real-time listener for fee payments
+    const feesQ = query(
+      collection(db, "feePayments"),
+      where("studentId", "==", studentId)
+    );
+
+    const unsubscribeFees = onSnapshot(feesQ, (feesSnap) => {
+      const fetchedFees: FeePayment[] = [];
+      feesSnap.forEach((doc) => {
+        fetchedFees.push({ id: doc.id, ...doc.data() } as FeePayment);
+      });
+      // Sort by date descending
+      fetchedFees.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      setFeePayments(fetchedFees);
+    });
+
     return () => {
       unsubscribeResults();
       unsubscribeAttendance();
       unsubscribeTheory();
+      unsubscribeFees();
     };
   }, [studentId, user, dbUser, router]);
 
@@ -165,6 +196,9 @@ export default function StudentDetailsPage() {
     const s = seconds % 60;
     return `${m}m ${s}s`;
   };
+
+  const totalPaid = feePayments.reduce((sum, p) => sum + p.amount, 0);
+  const remainingFees = Math.max(0, totalFees - totalPaid);
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto py-8 px-4 sm:px-6">
@@ -212,6 +246,17 @@ export default function StudentDetailsPage() {
         >
           Theory Marks
           {activeTab === "theory" && (
+            <div className="absolute bottom-0 left-0 w-full h-0.5 bg-brand-blue rounded-t-full" />
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab("fees")}
+          className={`pb-4 px-2 text-sm font-semibold transition-colors relative ${
+            activeTab === "fees" ? "text-brand-blue" : "text-slate-500 hover:text-slate-700"
+          }`}
+        >
+          Fees
+          {activeTab === "fees" && (
             <div className="absolute bottom-0 left-0 w-full h-0.5 bg-brand-blue rounded-t-full" />
           )}
         </button>
@@ -408,6 +453,69 @@ export default function StudentDetailsPage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {activeTab === "fees" && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center justify-center">
+              <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">Total Fees</p>
+              <p className="text-3xl font-bold text-slate-900">₹{totalFees.toLocaleString()}</p>
+            </div>
+            <div className="bg-green-50 p-6 rounded-2xl border border-green-100 flex flex-col items-center justify-center">
+              <p className="text-sm font-semibold text-green-600 uppercase tracking-wider mb-2">Paid</p>
+              <p className="text-3xl font-bold text-green-700">₹{totalPaid.toLocaleString()}</p>
+            </div>
+            <div className="bg-orange-50 p-6 rounded-2xl border border-orange-100 flex flex-col items-center justify-center">
+              <p className="text-sm font-semibold text-orange-600 uppercase tracking-wider mb-2">Remaining</p>
+              <p className="text-3xl font-bold text-brand-orange">₹{remainingFees.toLocaleString()}</p>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+            <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+              <DollarSign className="text-brand-blue" />
+              Payment History
+            </h2>
+            {feePayments.length === 0 ? (
+              <div className="text-center text-slate-500 py-12 border border-dashed border-slate-200 rounded-xl">
+                No payment records found.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {feePayments.map((payment) => (
+                  <div key={payment.id} className="p-5 rounded-xl border border-slate-100 bg-slate-50 flex flex-col gap-3">
+                    <div className="flex justify-between items-start">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-green-100 text-green-600 rounded-xl">
+                          <DollarSign size={20} />
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-900 text-xl">₹{payment.amount.toLocaleString()}</p>
+                          <p className="text-sm text-slate-500 flex items-center gap-1 mt-0.5">
+                            <CalendarIcon size={14} />
+                            {new Date(payment.date).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      {payment.receiptNo && (
+                        <span className="px-3 py-1 bg-brand-blue/10 text-brand-blue text-xs font-semibold rounded-lg flex items-center gap-1">
+                          <FileText size={12} />
+                          {payment.receiptNo}
+                        </span>
+                      )}
+                    </div>
+                    {payment.remarks && (
+                      <div className="text-sm text-slate-600 bg-white p-3 rounded-lg border border-slate-100">
+                        {payment.remarks}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

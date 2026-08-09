@@ -1,13 +1,16 @@
 "use client";
 
 import { useAuth } from "@/context/AuthContext";
-import { Loader2, CalendarCheck, FileText, BookOpen } from "lucide-react";
+import { Loader2, CalendarCheck, FileText, BookOpen, DollarSign } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
+import { doc, getDoc } from "firebase/firestore";
 import { StudentAttendanceHistoryModal } from "@/components/admin/StudentAttendanceHistoryModal";
+import { StudentFeesHistoryModal } from "@/components/student/StudentFeesHistoryModal";
+import { FeePayment } from "@/components/admin/FeePaymentModal";
 
 export default function StudentDashboard() {
   const { user, role, loading, dbUser } = useAuth();
@@ -15,6 +18,12 @@ export default function StudentDashboard() {
   
   const [attendanceStats, setAttendanceStats] = useState<{ total: number, present: number } | null>(null);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  
+  const [feePayments, setFeePayments] = useState<FeePayment[]>([]);
+  const [totalFees, setTotalFees] = useState(0);
+  const [isFeesHistoryModalOpen, setIsFeesHistoryModalOpen] = useState(false);
+  const [feesLoading, setFeesLoading] = useState(true);
+
   const [statsLoading, setStatsLoading] = useState(true);
 
   useEffect(() => {
@@ -53,6 +62,32 @@ export default function StudentDashboard() {
     }
   }, [user?.uid, role]);
 
+  useEffect(() => {
+    async function fetchFees() {
+      if (!user?.uid) return;
+      try {
+        const studentDoc = await getDoc(doc(db, "students", user.uid));
+        if (studentDoc.exists()) {
+          setTotalFees(studentDoc.data().totalFees || 0);
+        }
+
+        const feesQ = query(collection(db, "feePayments"), where("studentId", "==", user.uid));
+        const feesSnap = await getDocs(feesQ);
+        const payments = feesSnap.docs.map(d => ({ id: d.id, ...d.data() } as FeePayment));
+        payments.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        setFeePayments(payments);
+      } catch (error) {
+        console.error("Error fetching fees:", error);
+      } finally {
+        setFeesLoading(false);
+      }
+    }
+
+    if (user?.uid && role === "student") {
+      fetchFees();
+    }
+  }, [user?.uid, role]);
+
   if (loading || !user || role !== "student") {
     return (
       <div className="min-h-[70vh] flex items-center justify-center">
@@ -66,6 +101,9 @@ export default function StudentDashboard() {
     id: user.uid,
     name: (dbUser?.name as string) || "Student"
   };
+
+  const totalPaid = feePayments.reduce((sum, p) => sum + p.amount, 0);
+  const remainingFees = Math.max(0, totalFees - totalPaid);
 
   return (
     <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 py-8">
@@ -182,11 +220,67 @@ export default function StudentDashboard() {
             </div>
           </div>
         </div>
+
+        {/* Fees Summary Card */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-md transition-shadow flex flex-col">
+          <div className="h-2 bg-gradient-to-r from-brand-blue to-green-500" />
+          <div className="p-6 flex flex-col flex-1">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-green-600">
+                <DollarSign size={24} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Fees Summary</h3>
+                <p className="text-sm text-slate-500">Track your payments</p>
+              </div>
+            </div>
+            
+            <div className="space-y-4 flex-1 flex flex-col justify-center">
+              {feesLoading ? (
+                <div className="flex justify-center p-4">
+                  <Loader2 className="animate-spin text-green-600" size={24} />
+                </div>
+              ) : (
+                <>
+                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-slate-500 font-medium">Total Fees</span>
+                      <span className="font-semibold text-slate-900">₹{totalFees.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-slate-500 font-medium">Paid</span>
+                      <span className="font-bold text-green-600">₹{totalPaid.toLocaleString()}</span>
+                    </div>
+                    <div className="pt-2 border-t border-slate-200 flex justify-between items-center">
+                      <span className="text-sm text-slate-500 font-medium">Remaining</span>
+                      <span className="font-bold text-brand-orange">₹{remainingFees.toLocaleString()}</span>
+                    </div>
+                  </div>
+                  
+                  <button 
+                    onClick={() => setIsFeesHistoryModalOpen(true)}
+                    className="w-full py-2.5 text-sm font-medium text-green-700 bg-green-50 rounded-xl hover:bg-green-100 transition-colors"
+                  >
+                    View Payment History
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
       <StudentAttendanceHistoryModal
         isOpen={isHistoryModalOpen}
         onClose={() => setIsHistoryModalOpen(false)}
         student={currentStudent}
+      />
+      <StudentFeesHistoryModal
+        isOpen={isFeesHistoryModalOpen}
+        onClose={() => setIsFeesHistoryModalOpen(false)}
+        feePayments={feePayments}
+        totalFees={totalFees}
+        totalPaid={totalPaid}
+        remainingFees={remainingFees}
       />
     </div>
   );

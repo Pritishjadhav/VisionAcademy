@@ -29,6 +29,16 @@ export default function StudentTestsPage() {
   useEffect(() => {
     if (!user || !dbUser?.batch) return;
 
+    let testsLoaded = false;
+    let resultsLoaded = false;
+    let attemptsLoaded = false;
+
+    const checkAllLoaded = () => {
+      if (testsLoaded && resultsLoaded && attemptsLoaded) {
+        setLoading(false);
+      }
+    };
+
     const q = query(collection(db, "tests"), where("batch", "==", dbUser.batch));
     const resQ = query(collection(db, "results"), where("studentId", "==", user.uid));
     const attQ = query(collection(db, "testAttempts"), where("studentId", "==", user.uid));
@@ -38,6 +48,8 @@ export default function StudentTestsPage() {
         .map(doc => ({ id: doc.id, ...doc.data() }) as Test)
         .filter(t => t.status === "Published");
       setTests(allTests);
+      testsLoaded = true;
+      checkAllLoaded();
     });
 
     const unsubscribeResults = onSnapshot(resQ, (snapshot) => {
@@ -47,6 +59,8 @@ export default function StudentTestsPage() {
         resMap[data.testId] = data;
       });
       setResults(resMap);
+      resultsLoaded = true;
+      checkAllLoaded();
     });
 
     const unsubscribeAttempts = onSnapshot(attQ, (snapshot) => {
@@ -56,6 +70,8 @@ export default function StudentTestsPage() {
         attMap[data.testId] = data;
       });
       setAttempts(attMap);
+      attemptsLoaded = true;
+      checkAllLoaded();
     });
 
     return () => {
@@ -115,7 +131,6 @@ export default function StudentTestsPage() {
     setUpcoming(currentUpcoming);
     setLive(currentLive);
     setCompleted(currentCompleted);
-    if (tests.length > 0) setLoading(false);
   }, [tests, results, attempts]);
 
   if (loading) {
