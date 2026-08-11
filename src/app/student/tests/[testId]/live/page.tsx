@@ -42,6 +42,12 @@ export default function LiveTestPage() {
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(Date.now());
+  const submitTestRef = useRef<any>(null);
+  const answersRef = useRef<Record<string, AnswerState>>({});
+
+  useEffect(() => {
+    answersRef.current = answers;
+  }, [answers]);
 
   useEffect(() => {
     async function initTest() {
@@ -161,7 +167,7 @@ export default function LiveTestPage() {
         // Auto-save every 10 seconds
         if (prev % 10 === 0 && testId && user) {
            const attemptRef = doc(db, "testAttempts", `${testId}_${user.uid}`);
-           setDoc(attemptRef, { remainingTime: prev - 1, answers, lastSaveTime: new Date().toISOString() }, { merge: true }).catch(()=>{});
+           setDoc(attemptRef, { remainingTime: prev - 1, answers: answersRef.current, lastSaveTime: new Date().toISOString() }, { merge: true }).catch(()=>{});
         }
         
         return prev - 1;
@@ -191,11 +197,11 @@ export default function LiveTestPage() {
       if (violationTriggered.current || isSubmitting) return;
       violationTriggered.current = true;
       toast.error(`Violation Detected: ${reason}. Auto-submitting test.`);
-      submitTest('Auto Submitted', reason);
+      if (submitTestRef.current) submitTestRef.current('Auto Submitted', reason);
     };
 
     const handleVisibilityChange = () => {
-      if (document.hidden) {
+      if (document.hidden || document.visibilityState === 'hidden') {
         handleViolation("Browser or Tab Hidden (Switched App or Tab)");
       }
     };
@@ -208,6 +214,10 @@ export default function LiveTestPage() {
       e.preventDefault();
       e.returnValue = ''; // Chrome requires this
       handleViolation("Attempted to Reload or Close Page");
+    };
+
+    const handlePageHide = () => {
+      handleViolation("Page Hidden or Closed");
     };
 
     const preventDefaultAndLog = (reason: string) => (e: Event) => {
@@ -229,8 +239,31 @@ export default function LiveTestPage() {
       }
     };
 
+    // Fallback 1: Frame throttling detection (defeats "Always Active Window" extensions)
+    // Browsers heavily throttle requestAnimationFrame (often to < 1Hz) when a tab is inactive.
+    let lastFrameTime = performance.now();
+    let rAFId: number;
+    const checkThrottling = (time: number) => {
+      if (time - lastFrameTime > 2000) {
+        handleViolation("Browser Tab Backgrounded (Extension Bypass Detected)");
+      }
+      lastFrameTime = time;
+      if (!violationTriggered.current && !isSubmitting) {
+        rAFId = requestAnimationFrame(checkThrottling);
+      }
+    };
+    rAFId = requestAnimationFrame(checkThrottling);
+
+    // Fallback 2: Polling focus (defeats some extensions blocking blur events)
+    const focusInterval = setInterval(() => {
+      if (document.hasFocus && !document.hasFocus()) {
+        handleViolation("Window Lost Focus (Background Check)");
+      }
+    }, 2000);
+
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("blur", handleBlur);
+    window.addEventListener("pagehide", handlePageHide);
     window.addEventListener("beforeunload", handleBeforeUnload);
     window.addEventListener("contextmenu", preventDefaultAndLog("Right Click Attempted"));
     window.addEventListener("copy", preventDefaultAndLog("Copy Attempted"));
@@ -240,8 +273,11 @@ export default function LiveTestPage() {
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
+      cancelAnimationFrame(rAFId);
+      clearInterval(focusInterval);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("blur", handleBlur);
+      window.removeEventListener("pagehide", handlePageHide);
       window.removeEventListener("beforeunload", handleBeforeUnload);
       window.removeEventListener("contextmenu", preventDefaultAndLog("Right Click Attempted"));
       window.removeEventListener("copy", preventDefaultAndLog("Copy Attempted"));
@@ -366,9 +402,9 @@ export default function LiveTestPage() {
   const autoSubmit = async (reason = "Time limit reached") => {
     if (reason === "Time's up") {
       toast.error("Time's up! Auto-submitting...");
-      await submitTest('Normal');
+      await submitTestRef.current('Normal');
     } else {
-      await submitTest('Auto Submitted', reason);
+      await submitTestRef.current('Auto Submitted', reason);
     }
   };
 
@@ -526,6 +562,8 @@ export default function LiveTestPage() {
     }
   };
 
+  submitTestRef.current = submitTest;
+
   if (loading || !test) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin text-brand-blue" size={50} /></div>;
 
   const currentQ = questions[currentQIdx];
@@ -586,7 +624,7 @@ export default function LiveTestPage() {
                     name={`q-${currentQ.id}`} 
                     className="mt-1 w-5 h-5 text-brand-blue dark:text-brand-orange border-slate-300 dark:border-slate-600 dark:bg-slate-700 focus:ring-brand-blue dark:focus:ring-brand-orange"
                     checked={curAns.selectedOption === opt}
-                    onChange={() => setAnswers(prev => ({ ...prev, [currentQ.id]: { ...prev[currentQ.id], selectedOption: opt } }))}
+                    onChange={() => setAnswers(prev => ({ ...prev, [currentQ.id]: { ...prev[currentQ.id], selectedOption: opt, status: 'Answered' } }))}
                   />
                   <div>
                     <span className="font-bold mr-2 text-slate-500 dark:text-slate-400">{opt}.</span>
@@ -605,7 +643,7 @@ export default function LiveTestPage() {
                       setAnswers(prev => {
                         const curOpts = prev[currentQ.id].selectedOptions || [];
                         const newOpts = curOpts.includes(opt) ? curOpts.filter(o => o !== opt) : [...curOpts, opt];
-                        return { ...prev, [currentQ.id]: { ...prev[currentQ.id], selectedOptions: newOpts } };
+                        return { ...prev, [currentQ.id]: { ...prev[currentQ.id], selectedOptions: newOpts, status: newOpts.length > 0 ? 'Answered' : 'Not Answered' } };
                       });
                     }}
                   />
@@ -625,7 +663,7 @@ export default function LiveTestPage() {
                     value={curAns.enteredInteger ?? ''}
                     onChange={(e) => setAnswers(prev => ({ 
                       ...prev, 
-                      [currentQ.id]: { ...prev[currentQ.id], enteredInteger: e.target.value ? Number(e.target.value) : null } 
+                      [currentQ.id]: { ...prev[currentQ.id], enteredInteger: e.target.value ? Number(e.target.value) : null, status: e.target.value ? 'Answered' : 'Not Answered' } 
                     }))}
                   />
                 </div>

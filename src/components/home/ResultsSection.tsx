@@ -15,6 +15,7 @@ const engineeringResults = [
   { name: "Sawale Krishna", college: "PICT", img: "" },
   { name: "Khaladkar Sanskar", college: "PICT", img: "" },
   { name: "Jadhav Pritish", college: "VIT", img: "/student photo/pritish.jpeg" },
+  { name: "Apurva Kohinkar", college: "VIT", img: "" },
   { name: "Rale Aryan", college: "VIT", img: "" },
   { name: "Lende Vedant", college: "VIT", img: "" },
   { name: "Jondhale Jaysen", college: "VIT", img: "" },

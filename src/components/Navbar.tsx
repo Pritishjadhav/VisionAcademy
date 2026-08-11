@@ -41,7 +41,7 @@ export function Navbar() {
   };
 
   const userName = (dbUser?.name as string) || user?.displayName || "";
-  const userInitials = role === "parent" ? "PD" : getInitials(userName);
+  const userInitials = (role === "admin" || role === "super_admin") ? "VA" : role === "parent" ? "PD" : getInitials(userName);
   const pathname = usePathname();
   const router = useRouter();
   const [activeSection, setActiveSection] = useState("");
