@@ -62,7 +62,7 @@ export interface StudentAnswer {
   submitted: boolean;
   submittedAt?: string;
   startedAt: string;
-  submissionType?: 'Normal' | 'Auto Submitted';
+  submissionType?: 'Normal' | 'Auto Submitted' | 'Violation';
   violationReason?: string;
 }
 
