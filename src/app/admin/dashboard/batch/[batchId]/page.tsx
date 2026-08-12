@@ -120,7 +120,7 @@ export default function BatchPage({ params }: { params: Promise<{ batchId: strin
     student.name?.toLowerCase().includes(search.toLowerCase()) ||
     student.mobile?.includes(search) ||
     student.email?.toLowerCase().includes(search.toLowerCase())
-  );
+  ).sort((a, b) => (a.name || "").localeCompare(b.name || ""));
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto py-8 px-4">
@@ -183,6 +183,7 @@ export default function BatchPage({ params }: { params: Promise<{ batchId: strin
             <table className="w-full text-left">
               <thead className="bg-slate-50 text-slate-500 text-sm font-medium border-b border-slate-100">
                 <tr>
+                  <th className="py-4 px-6">Roll No</th>
                   <th className="py-4 px-6">Name</th>
                   <th className="py-4 px-6">Contact</th>
                   <th className="py-4 px-6">Parent</th>
@@ -196,8 +197,11 @@ export default function BatchPage({ params }: { params: Promise<{ batchId: strin
                     <td colSpan={4} className="py-8 text-center text-slate-500">No students found.</td>
                   </tr>
                 ) : (
-                  filteredStudents.map(student => (
+                  filteredStudents.map((student, index) => (
                     <tr key={student.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="py-4 px-6 font-semibold text-slate-500">
+                        {index + 1}
+                      </td>
                       <td className="py-4 px-6">
                         {isUnassigned ? (
                           <div className="flex items-center gap-3">
@@ -311,8 +315,15 @@ export default function BatchPage({ params }: { params: Promise<{ batchId: strin
 
       <StudentFormModal 
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSuccess={() => {}}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingStudent(null);
+        }}
+        onSuccess={() => {
+          setIsModalOpen(false);
+          setEditingStudent(null);
+          router.push("/admin/dashboard");
+        }}
         student={editingStudent}
       />
       

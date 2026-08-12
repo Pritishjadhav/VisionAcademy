@@ -179,6 +179,7 @@ export function StudentFormModal({ isOpen, onClose, onSuccess, student }: Props)
                           required
                         />
                       </div>
+                      <p className="text-xs font-bold text-red-600 ml-1 bg-red-50 inline-block px-2 py-1 rounded-md mt-1">Format: Last Name First Name Middle Name</p>
                     </div>
 
                     <div className="space-y-1">

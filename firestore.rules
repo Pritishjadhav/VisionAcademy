@@ -43,6 +43,14 @@ service cloud.firestore {
       allow read, write: if isAdminOrSuperAdmin();
     }
 
+    // Faculty Collection
+    match /faculty/{facultyId} {
+      // A faculty member can read and write their own data
+      allow read, write: if isAuthenticated() && request.auth.uid == facultyId;
+      // Admins and Super Admins can manage faculty
+      allow read, write: if isAdminOrSuperAdmin();
+    }
+
     // Parents Collection
     match /parents/{parentId} {
       // A parent can read their own data
@@ -79,7 +87,8 @@ service cloud.firestore {
     // Student Answers Collection
     match /studentAnswers/{answerId} {
       allow read, write: if isAdminOrSuperAdmin();
-      allow read, write: if isAuthenticated() && (resource == null || resource.data.studentId == request.auth.uid || request.resource.data.studentId == request.auth.uid);
+      allow write: if isAuthenticated() && (resource == null || resource.data.studentId == request.auth.uid || request.resource.data.studentId == request.auth.uid);
+      allow read: if isAuthenticated();
     }
 
     // Results Collection

@@ -6,10 +6,11 @@ import { CoursesSection } from "@/components/home/CoursesSection";
 import { FacultySection } from "@/components/home/FacultySection";
 import { ResultsSection } from "@/components/home/ResultsSection";
 import { ContactSection } from "@/components/home/ContactSection";
+import { RedirectIfLoggedIn } from "@/components/auth/RedirectIfLoggedIn";
 
 export default function Home() {
   return (
-    <>
+    <RedirectIfLoggedIn>
       <HeroSection />
       <FeaturesSection />
       <AboutSection />
@@ -18,6 +19,6 @@ export default function Home() {
       <FacultySection />
       <ResultsSection />
       <ContactSection />
-    </>
+    </RedirectIfLoggedIn>
   );
 }

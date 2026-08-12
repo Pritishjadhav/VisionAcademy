@@ -4,7 +4,8 @@ import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { AdminLoginForm } from "@/components/auth/AdminLoginForm";
-import { ShieldCheck, Loader2 } from "lucide-react";
+import { ShieldCheck, Loader2, X } from "lucide-react";
+import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { useEffect } from "react";
 
@@ -28,6 +29,13 @@ export default function AdminLoginPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 relative overflow-hidden flex flex-col font-sans">
+      <Link 
+        href="/"
+        className="fixed top-24 right-6 z-50 p-2.5 bg-white/60 hover:bg-white text-slate-600 hover:text-red-500 rounded-full backdrop-blur-md transition-all shadow-sm hover:shadow-md border border-slate-200"
+        title="Close and return to Home"
+      >
+        <X size={24} />
+      </Link>
       {/* Animated Background Elements */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
         <motion.div 

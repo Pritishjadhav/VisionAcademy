@@ -24,11 +24,11 @@ export default function LiveTestPage() {
   const { testId } = useParams() as { testId: string };
   const router = useRouter();
   const { user, dbUser } = useAuth();
-  
+
   const [test, setTest] = useState<Test | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   const [currentQIdx, setCurrentQIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<string, AnswerState>>({});
   const [timeLeft, setTimeLeft] = useState<number>(0); // in seconds
@@ -90,10 +90,10 @@ export default function LiveTestPage() {
           router.replace(`/student/tests`);
           return;
         }
-        
+
         // Calculate max duration limit
         const durationLimit = tData.totalDuration * 60;
-        
+
         // --- Secure Test Mode Initialization ---
         // 1. Session Binding Check
         if (!sessionId) {
@@ -112,13 +112,13 @@ export default function LiveTestPage() {
         // 2. Initialize or Resume Test Attempt
         const attemptRef = doc(db, "testAttempts", `${testId}_${user.uid}`);
         const attemptSnap = await getDoc(attemptRef);
-        
+
         if (attemptSnap.exists()) {
           const aData = attemptSnap.data();
           if (aData.status !== 'active') {
-             toast.error("You cannot resume a submitted test.");
-             router.replace(`/student/tests/${testId}/result`);
-             return;
+            toast.error("You cannot resume a submitted test.");
+            router.replace(`/student/tests/${testId}/result`);
+            return;
           }
           // Restore state
           if (aData.answers) {
@@ -142,7 +142,7 @@ export default function LiveTestPage() {
           });
           setTimeLeft(Math.min(remaining, durationLimit));
         }
-        
+
       } catch (error) {
         console.error(error);
         toast.error("Error loading test");
@@ -163,13 +163,13 @@ export default function LiveTestPage() {
           autoSubmit("Time's up");
           return 0;
         }
-        
+
         // Auto-save every 10 seconds
         if (prev % 10 === 0 && testId && user) {
-           const attemptRef = doc(db, "testAttempts", `${testId}_${user.uid}`);
-           setDoc(attemptRef, { remainingTime: prev - 1, answers: answersRef.current, lastSaveTime: new Date().toISOString() }, { merge: true }).catch(()=>{});
+          const attemptRef = doc(db, "testAttempts", `${testId}_${user.uid}`);
+          setDoc(attemptRef, { remainingTime: prev - 1, answers: answersRef.current, lastSaveTime: new Date().toISOString() }, { merge: true }).catch(() => { });
         }
-        
+
         return prev - 1;
       });
       // Also update timeSpent for current question
@@ -315,7 +315,7 @@ export default function LiveTestPage() {
   };
 
   const getStatusColor = (status: QuestionStatus) => {
-    switch(status) {
+    switch (status) {
       case 'Answered': return 'bg-green-500 text-white';
       case 'Marked for Review': return 'bg-purple-500 text-white';
       case 'Answered & Marked for Review': return 'bg-blue-600 text-white';
@@ -331,21 +331,21 @@ export default function LiveTestPage() {
     if (answers[qId].status === 'Not Visited') {
       setAnswers(prev => ({ ...prev, [qId]: { ...prev[qId], status: 'Not Answered' } }));
     }
-    
+
     // Target question
     const nextQId = questions[idx].id;
     if (answers[nextQId].status === 'Not Visited') {
       setAnswers(prev => ({ ...prev, [nextQId]: { ...prev[nextQId], status: 'Not Answered' } }));
     }
-    
+
     setCurrentQIdx(idx);
   };
 
   const handleSaveAndNext = () => {
     const q = questions[currentQIdx];
     const ans = answers[q.id];
-    
-    const isAnswered = 
+
+    const isAnswered =
       (q.questionType === 'MCQ' && ans.selectedOption) ||
       (q.questionType === 'MSQ' && ans.selectedOptions && ans.selectedOptions.length > 0) ||
       (q.questionType === 'Integer' && ans.enteredInteger !== undefined && ans.enteredInteger !== null);
@@ -357,7 +357,7 @@ export default function LiveTestPage() {
         status: isAnswered ? 'Answered' : 'Not Answered'
       }
     }));
-    
+
     if (currentQIdx < questions.length - 1) {
       navigateToQuestion(currentQIdx + 1);
     }
@@ -366,8 +366,8 @@ export default function LiveTestPage() {
   const handleMarkForReviewAndNext = () => {
     const q = questions[currentQIdx];
     const ans = answers[q.id];
-    
-    const isAnswered = 
+
+    const isAnswered =
       (q.questionType === 'MCQ' && ans.selectedOption) ||
       (q.questionType === 'MSQ' && ans.selectedOptions && ans.selectedOptions.length > 0) ||
       (q.questionType === 'Integer' && ans.enteredInteger !== undefined && ans.enteredInteger !== null);
@@ -379,7 +379,7 @@ export default function LiveTestPage() {
         status: isAnswered ? 'Answered & Marked for Review' : 'Marked for Review'
       }
     }));
-    
+
     if (currentQIdx < questions.length - 1) {
       navigateToQuestion(currentQIdx + 1);
     }
@@ -419,7 +419,7 @@ export default function LiveTestPage() {
       let unattemptedCount = 0;
       let positiveMarks = 0;
       let negativeMarks = 0;
-      
+
       const subjectWiseMarks: Record<string, number> = { Physics: 0, Chemistry: 0, Mathematics: 0, Biology: 0 };
       const subjectWiseCorrect: Record<string, number> = { Physics: 0, Chemistry: 0, Mathematics: 0, Biology: 0 };
       const subjectWiseTotal: Record<string, number> = { Physics: 0, Chemistry: 0, Mathematics: 0, Biology: 0 };
@@ -467,7 +467,7 @@ export default function LiveTestPage() {
       const percentage = test.totalMarks > 0 ? (marksObtained / test.totalMarks) * 100 : 0;
       const totalAttempted = correctCount + wrongCount;
       const overallAccuracy = totalAttempted > 0 ? (correctCount / totalAttempted) * 100 : 0;
-      
+
       const subjectWiseAccuracy = {
         Physics: subjectWiseTotal['Physics'] > 0 ? (subjectWiseCorrect['Physics'] / subjectWiseTotal['Physics']) * 100 : 0,
         Chemistry: subjectWiseTotal['Chemistry'] > 0 ? (subjectWiseCorrect['Chemistry'] / subjectWiseTotal['Chemistry']) * 100 : 0,
@@ -511,7 +511,7 @@ export default function LiveTestPage() {
         submissionType,
         violationReason: violationReason || ""
       };
-      
+
       await addDoc(collection(db, "studentAnswers"), studentAnswerData);
 
       // Secure Test Mode cleanup & logging
@@ -531,7 +531,7 @@ export default function LiveTestPage() {
           timestamp: new Date().toISOString()
         });
       }
-      
+
       // Update Attempt Status
       await setDoc(doc(db, "testAttempts", `${test.id}_${user.uid}`), {
         status: submissionType === 'Auto Submitted' ? 'auto-submitted' : 'submitted',
@@ -544,15 +544,15 @@ export default function LiveTestPage() {
 
       // Exit fullscreen
       if (document.fullscreenElement) {
-        document.exitFullscreen().catch(()=>{});
+        document.exitFullscreen().catch(() => { });
       }
 
       if (submissionType === 'Auto Submitted') {
-         toast.error("Test was auto-submitted due to rule violation.");
+        toast.error("Test was auto-submitted due to rule violation.");
       } else {
-         toast.success("Test submitted successfully!");
+        toast.success("Test submitted successfully!");
       }
-      
+
       router.replace(`/student/tests/${test.id}/result`);
 
     } catch (error) {
@@ -609,19 +609,23 @@ export default function LiveTestPage() {
               <span className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-md font-bold">{currentQ.subject}</span>
               <span className="text-xs px-2 py-1 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-md font-bold">Marks: +{currentQ.marks} / -{currentQ.negativeMarks}</span>
               <span className="text-xs px-2 py-1 bg-orange-100 dark:bg-brand-orange/20 text-orange-700 dark:text-brand-orange rounded-md font-bold">{currentQ.questionType}</span>
+              <span className="text-xs px-2 py-1 flex items-center gap-1 bg-brand-blue/10 text-brand-blue dark:bg-brand-orange/20 dark:text-brand-orange rounded-md font-bold">
+                <Clock size={12} />
+                {formatTime(curAns?.timeSpent || 0)}
+              </span>
             </div>
           </div>
-          
+
           <div className="flex-1 overflow-y-auto p-6 md:p-8">
             <p className="text-lg text-slate-800 dark:text-slate-200 font-medium whitespace-pre-wrap mb-8 leading-relaxed">{currentQ.questionText}</p>
-            
+
             {/* Options Input */}
             <div className="space-y-4 max-w-3xl">
               {currentQ.questionType === 'MCQ' && currentQ.options && ['A', 'B', 'C', 'D'].map(opt => (
                 <label key={opt} className={`flex items-start gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${curAns.selectedOption === opt ? 'border-brand-blue dark:border-brand-orange bg-blue-50/50 dark:bg-brand-orange/10' : 'border-slate-100 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-800'}`}>
-                  <input 
-                    type="radio" 
-                    name={`q-${currentQ.id}`} 
+                  <input
+                    type="radio"
+                    name={`q-${currentQ.id}`}
                     className="mt-1 w-5 h-5 text-brand-blue dark:text-brand-orange border-slate-300 dark:border-slate-600 dark:bg-slate-700 focus:ring-brand-blue dark:focus:ring-brand-orange"
                     checked={curAns.selectedOption === opt}
                     onChange={() => setAnswers(prev => ({ ...prev, [currentQ.id]: { ...prev[currentQ.id], selectedOption: opt, status: 'Answered' } }))}
@@ -635,8 +639,8 @@ export default function LiveTestPage() {
 
               {currentQ.questionType === 'MSQ' && currentQ.options && ['A', 'B', 'C', 'D'].map(opt => (
                 <label key={opt} className={`flex items-start gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${(curAns.selectedOptions || []).includes(opt) ? 'border-brand-blue dark:border-brand-orange bg-blue-50/50 dark:bg-brand-orange/10' : 'border-slate-100 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-800'}`}>
-                  <input 
-                    type="checkbox" 
+                  <input
+                    type="checkbox"
                     className="mt-1 w-5 h-5 text-brand-blue dark:text-brand-orange border-slate-300 dark:border-slate-600 dark:bg-slate-700 focus:ring-brand-blue dark:focus:ring-brand-orange rounded"
                     checked={(curAns.selectedOptions || []).includes(opt)}
                     onChange={() => {
@@ -656,21 +660,21 @@ export default function LiveTestPage() {
 
               {currentQ.questionType === 'Integer' && (
                 <div>
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     placeholder="Type your integer answer..."
                     className="w-full max-w-xs px-4 py-3 text-lg border-2 border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 rounded-xl focus:outline-none focus:border-brand-blue dark:focus:border-brand-orange focus:ring-4 focus:ring-brand-blue/10 dark:focus:ring-brand-orange/10 transition-all"
                     value={curAns.enteredInteger ?? ''}
-                    onChange={(e) => setAnswers(prev => ({ 
-                      ...prev, 
-                      [currentQ.id]: { ...prev[currentQ.id], enteredInteger: e.target.value ? Number(e.target.value) : null, status: e.target.value ? 'Answered' : 'Not Answered' } 
+                    onChange={(e) => setAnswers(prev => ({
+                      ...prev,
+                      [currentQ.id]: { ...prev[currentQ.id], enteredInteger: e.target.value ? Number(e.target.value) : null, status: e.target.value ? 'Answered' : 'Not Answered' }
                     }))}
                   />
                 </div>
               )}
             </div>
           </div>
-          
+
           {/* Action Buttons */}
           <div className="border-t border-slate-100 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-800/50 flex flex-wrap justify-between items-center gap-3 shrink-0 transition-colors">
             <div className="flex gap-2">
@@ -692,7 +696,7 @@ export default function LiveTestPage() {
           <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex items-center justify-between transition-colors">
             <h3 className="font-bold text-slate-800 dark:text-slate-100">Question Palette</h3>
           </div>
-          
+
           <div className="p-4 flex-1 overflow-y-auto">
             <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-4 lg:grid-cols-5 gap-2 mb-6">
               {questions.map((q, idx) => (
@@ -732,7 +736,7 @@ export default function LiveTestPage() {
             </div>
             <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">Submit Test?</h3>
             <p className="text-slate-500 dark:text-slate-400 mb-6">Are you sure you want to submit the test? Once submitted, you cannot modify your answers.</p>
-            
+
             <div className="flex justify-between gap-4">
               <Button variant="outline" className="flex-1 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-600" onClick={() => setShowSubmitModal(false)}>
                 Cancel

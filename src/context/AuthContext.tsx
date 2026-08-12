@@ -2,10 +2,10 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, onSnapshot } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase/config";
 
-type UserRole = "super_admin" | "admin" | "student" | "parent" | null;
+type UserRole = "super_admin" | "admin" | "student" | "parent" | "faculty" | null;
 
 interface AuthContextType {
   user: User | null;
@@ -30,48 +30,84 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    let unsubscribeSnapshot: (() => void) | undefined;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (unsubscribeSnapshot) {
+        unsubscribeSnapshot();
+        unsubscribeSnapshot = undefined;
+      }
+
       if (firebaseUser) {
         setUser(firebaseUser);
         
         try {
+          let roleFound: UserRole = null;
+          let collectionName = "";
+
           // Check if user is an admin
           let userDoc = await getDoc(doc(db, "admins", firebaseUser.uid));
           if (userDoc.exists()) {
-            setRole(userDoc.data().role as UserRole);
-            setDbUser(userDoc.data());
+            roleFound = userDoc.data().role as UserRole;
+            collectionName = "admins";
           } else {
             // Check if student
             userDoc = await getDoc(doc(db, "students", firebaseUser.uid));
             if (userDoc.exists()) {
-              setRole("student");
-              setDbUser(userDoc.data());
+              roleFound = "student";
+              collectionName = "students";
             } else {
               // Check if parent
               userDoc = await getDoc(doc(db, "parents", firebaseUser.uid));
               if (userDoc.exists()) {
-                setRole("parent");
-                setDbUser(userDoc.data());
+                roleFound = "parent";
+                collectionName = "parents";
               } else {
-                setRole(null);
-                setDbUser(null);
+                // Check if faculty
+                userDoc = await getDoc(doc(db, "faculty", firebaseUser.uid));
+                if (userDoc.exists()) {
+                  roleFound = "faculty";
+                  collectionName = "faculty";
+                }
               }
             }
+          }
+
+          if (roleFound && collectionName) {
+            setRole(roleFound);
+            unsubscribeSnapshot = onSnapshot(doc(db, collectionName, firebaseUser.uid), (docSnap) => {
+              if (docSnap.exists()) {
+                setDbUser(docSnap.data());
+              } else {
+                setDbUser(null);
+              }
+              setLoading(false);
+            });
+          } else {
+            setRole(null);
+            setDbUser(null);
+            setLoading(false);
           }
         } catch (error) {
           console.error("Error fetching user role:", error);
           setRole(null);
           setDbUser(null);
+          setLoading(false);
         }
       } else {
         setUser(null);
         setRole(null);
         setDbUser(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeSnapshot) {
+        unsubscribeSnapshot();
+      }
+    };
   }, []);
 
   return (

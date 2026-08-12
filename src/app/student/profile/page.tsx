@@ -117,6 +117,7 @@ export default function StudentProfilePage() {
       
       toast.success(isEditing && formData.batch ? "Profile updated successfully." : "Your profile has been saved successfully.");
       setIsEditing(false);
+      router.push("/student/dashboard");
     } catch (error) {
       console.error("Error saving profile:", error);
       toast.error("Failed to save profile.");
@@ -171,6 +172,7 @@ export default function StudentProfilePage() {
                     required
                   />
                 </div>
+                <p className="text-xs font-bold text-red-600 ml-1 bg-red-50 inline-block px-2 py-1 rounded-md mt-1">Format: Last Name First Name Middle Name</p>
               </div>
 
               {/* Email Address */}

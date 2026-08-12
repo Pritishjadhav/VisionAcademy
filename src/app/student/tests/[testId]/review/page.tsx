@@ -6,7 +6,7 @@ import { collection, query, where, getDocs, doc, getDoc } from "firebase/firesto
 import { db } from "@/lib/firebase/config";
 import { useAuth } from "@/context/AuthContext";
 import { Test, Question, StudentAnswer } from "@/lib/types/test";
-import { Loader2, ArrowLeft, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
+import { Loader2, ArrowLeft, CheckCircle2, XCircle, AlertCircle, Clock } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import toast from "react-hot-toast";
@@ -19,6 +19,7 @@ export default function StudentReviewPage() {
   const [test, setTest] = useState<Test | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [studentAnswers, setStudentAnswers] = useState<StudentAnswer | null>(null);
+  const [batchAverages, setBatchAverages] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -55,6 +56,32 @@ export default function StudentReviewPage() {
         qs.sort((a, b) => a.questionNumber - b.questionNumber);
         setQuestions(qs);
 
+        // Compute Batch Averages dynamically
+        const allAnsQ = query(collection(db, "studentAnswers"), where("testId", "==", testId));
+        const allAnsSnap = await getDocs(allAnsQ);
+        const sums: Record<string, { total: number; count: number }> = {};
+        allAnsSnap.forEach(docSnap => {
+          const data = docSnap.data() as StudentAnswer;
+          // Skip invalid/auto-submitted attempts for average calculation
+          if (data.submissionType === 'Auto Submitted' || data.submissionType === 'Violation') return;
+          
+          if (data.answers) {
+            Object.entries(data.answers).forEach(([qid, ansState]) => {
+              if (ansState.timeSpent && ansState.timeSpent > 0) {
+                if (!sums[qid]) sums[qid] = { total: 0, count: 0 };
+                sums[qid].total += ansState.timeSpent;
+                sums[qid].count += 1;
+              }
+            });
+          }
+        });
+
+        const avgs: Record<string, number> = {};
+        Object.keys(sums).forEach(qid => {
+          avgs[qid] = Math.round(sums[qid].total / sums[qid].count);
+        });
+        setBatchAverages(avgs);
+
       } catch (error) {
         console.error("Error fetching review data:", error);
       } finally {
@@ -67,6 +94,14 @@ export default function StudentReviewPage() {
   if (loading || !test) {
     return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-brand-blue" size={40} /></div>;
   }
+
+  const formatTime = (seconds: number) => {
+    if (!seconds) return "0s";
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    if (m > 0) return `${m}m ${s}s`;
+    return `${s}s`;
+  };
 
   return (
     <div className="space-y-8 max-w-5xl mx-auto py-8 px-4 sm:px-6">
@@ -114,9 +149,8 @@ export default function StudentReviewPage() {
             <div key={q.id} className={`bg-white rounded-2xl shadow-sm border-2 overflow-hidden ${statusColor}`}>
               <div className={`p-4 border-b flex justify-between items-center ${headerBg} ${headerBorder}`}>
                 <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${
-                    !studentAnswers ? 'bg-brand-blue' : !isAttempted ? 'bg-slate-400' : isCorrect ? 'bg-green-500' : 'bg-red-500'
-                  }`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${!studentAnswers ? 'bg-brand-blue' : !isAttempted ? 'bg-slate-400' : isCorrect ? 'bg-green-500' : 'bg-red-500'
+                    }`}>
                     {idx + 1}
                   </div>
                   <span className="font-bold text-slate-800">{q.subject}</span>
@@ -135,6 +169,22 @@ export default function StudentReviewPage() {
               </div>
 
               <div className="p-6">
+                {/* Time Stats */}
+                <div className="flex flex-wrap gap-4 mb-6">
+                  <div className="flex items-center gap-2 text-sm bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg border border-slate-200">
+                    <Clock size={16} />
+                    <span className="font-medium">Your Time:</span>
+                    <span className="font-bold">{formatTime(ans?.timeSpent || 0)}</span>
+                  </div>
+                  {batchAverages[q.id] !== undefined && (
+                    <div className="flex items-center gap-2 text-sm bg-blue-50 text-brand-blue px-3 py-1.5 rounded-lg border border-blue-100">
+                      <Clock size={16} />
+                      <span className="font-medium">Batch Avg:</span>
+                      <span className="font-bold">{formatTime(batchAverages[q.id])}</span>
+                    </div>
+                  )}
+                </div>
+
                 <p className="text-lg text-slate-800 font-medium whitespace-pre-wrap mb-6">{q.questionText}</p>
 
                 {q.questionType !== 'Integer' && q.options && (

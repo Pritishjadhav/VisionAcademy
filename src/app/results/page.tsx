@@ -56,10 +56,13 @@ const academicYears = [
  }
 ];
 
+import { RedirectIfLoggedIn } from "@/components/auth/RedirectIfLoggedIn";
+
 export default function ResultsPage() {
  const [activeFilter, setActiveFilter] = useState("All");
 
  return (
+   <RedirectIfLoggedIn>
  <div className="py-24 bg-slate-50 min-h-screen">
  <div className="max-w-[1600px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16">
  
@@ -148,5 +151,6 @@ export default function ResultsPage() {
 
  </div>
  </div>
+ </RedirectIfLoggedIn>
  );
 }

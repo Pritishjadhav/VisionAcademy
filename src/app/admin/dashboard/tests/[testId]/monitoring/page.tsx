@@ -175,18 +175,17 @@ export default function AdminMonitoringPage() {
                         {students[att.studentId]?.name || att.studentId}
                       </td>
                       <td className="py-3">
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                          att.status === 'active' ? 'bg-blue-100 text-blue-700' :
-                          att.status === 'auto-submitted' ? 'bg-red-100 text-red-700' :
-                          'bg-green-100 text-green-700'
-                        }`}>
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${att.status === 'active' ? 'bg-blue-100 text-blue-700' :
+                            att.status === 'auto-submitted' ? 'bg-red-100 text-red-700' :
+                              'bg-green-100 text-green-700'
+                          }`}>
                           {att.status.toUpperCase()}
                         </span>
                       </td>
                       <td className="py-3">
                         {att.status !== 'active' && (
-                          <Button 
-                            variant="outline" 
+                          <Button
+                            variant="outline"
                             size="sm"
                             className="h-8 text-xs text-brand-blue border-brand-blue/20 hover:bg-brand-blue/5 px-2"
                             onClick={() => setSelectedStudent(att)}
@@ -266,15 +265,15 @@ export default function AdminMonitoringPage() {
               <Button variant="outline" onClick={() => setSelectedStudent(null)} disabled={isResuming}>
                 Cancel
               </Button>
-              <Button 
-                onClick={() => handleResumeTest('Restart')} 
+              <Button
+                onClick={() => handleResumeTest('Restart')}
                 disabled={isResuming}
                 className="bg-red-600 hover:bg-red-700 text-white"
               >
                 Restart Test
               </Button>
-              <Button 
-                onClick={() => handleResumeTest('Continue')} 
+              <Button
+                onClick={() => handleResumeTest('Continue')}
                 disabled={isResuming}
                 className="bg-brand-blue hover:bg-brand-blue/90 text-white"
               >

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Plus, User, GraduationCap, ChevronRight } from "lucide-react";
 import { StudentFormModal } from "@/components/admin/StudentFormModal";
 import { AdminManagement } from "@/components/admin/AdminManagement";
+import { FacultyManagement } from "@/components/admin/FacultyManagement";
 import toast from "react-hot-toast";
 import Link from "next/link";
 
@@ -133,6 +134,7 @@ export default function AdminDashboard() {
         student={null}
       />
       
+      <FacultyManagement />
       <AdminManagement />
     </div>
   );

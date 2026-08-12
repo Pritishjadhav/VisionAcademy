@@ -109,6 +109,7 @@ export function Navbar() {
     if (role === "admin" || role === "super_admin") return "/admin/dashboard";
     if (role === "student") return "/student/dashboard";
     if (role === "parent") return "/parent/dashboard";
+    if (role === "faculty") return "/faculty/dashboard";
     return "/";
   };
 
@@ -134,7 +135,7 @@ export function Navbar() {
 
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-2">
-            {navLinks.map((link) => {
+            {!user && navLinks.map((link) => {
               const active = isActive(link.href);
               return (
                 <Link
@@ -194,6 +195,12 @@ export function Navbar() {
                         <Link href="/student/profile" className="flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors">
                           <User size={16} />
                           User Profile
+                        </Link>
+                      )}
+                      {role === "faculty" && (
+                        <Link href="/faculty/profile" className="flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors">
+                          <User size={16} />
+                          Faculty Profile
                         </Link>
                       )}
                       <Link href="/settings" className="flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors">
@@ -265,6 +272,12 @@ export function Navbar() {
                           User Profile
                         </Link>
                       )}
+                      {role === "faculty" && (
+                        <Link href="/faculty/profile" className="flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                          <User size={16} />
+                          Faculty Profile
+                        </Link>
+                      )}
                       <Link href="/settings" className="flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
                         <Settings size={16} />
                         Settings
@@ -284,13 +297,15 @@ export function Navbar() {
             ) : null}
 
             {/* Mobile Menu Toggle */}
-            <button
-              className="text-slate-900 p-2"
-              onClick={() => setMobileMenuOpen(true)}
-              aria-label="Open menu"
-            >
-              <Menu size={28} />
-            </button>
+            {!user && (
+              <button
+                className="text-slate-900 p-2"
+                onClick={() => setMobileMenuOpen(true)}
+                aria-label="Open menu"
+              >
+                <Menu size={28} />
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -338,19 +353,23 @@ export function Navbar() {
               </div>
 
               {/* Navigation Links */}
-              <nav className="flex flex-col p-4 gap-2 overflow-y-auto">
-                {navLinks.map((link) => (
-                  <Link
-                    key={link.name}
-                    href={link.href}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`font-medium px-4 py-3 rounded-xl transition-all ${isActive(link.href)
-                      ? "text-brand-orange bg-orange-50 font-bold"
-                      : "text-slate-700 hover:text-brand-orange hover:bg-slate-50"
-                      }`}
-                  >
-                    {link.name}
-                  </Link>
+              <nav className="flex flex-col p-4 overflow-y-auto">
+                {navLinks.map((link, index) => (
+                  <div key={link.name}>
+                    <Link
+                      href={link.href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`block font-medium px-4 py-3 rounded-xl transition-all ${isActive(link.href)
+                        ? "text-brand-orange bg-orange-50 font-bold"
+                        : "text-slate-700 hover:text-brand-orange hover:bg-slate-50"
+                        }`}
+                    >
+                      {link.name}
+                    </Link>
+                    {index < navLinks.length - 1 && (
+                      <div className="h-px bg-slate-100 mx-2 my-1" />
+                    )}
+                  </div>
                 ))}
                 
                 {!user && (

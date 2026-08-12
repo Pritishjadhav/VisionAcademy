@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { GraduationCap, Users, ShieldCheck, CheckCircle2, ArrowRight, Home, Loader2 } from "lucide-react";
+import { GraduationCap, Users, ShieldCheck, CheckCircle2, ArrowRight, Home, Loader2, X, BookOpen } from "lucide-react";
 
 export default function LoginSelectionPage() {
   const router = useRouter();
@@ -17,6 +17,7 @@ export default function LoginSelectionPage() {
       if (role === "admin" || role === "super_admin") router.push("/admin/dashboard");
       else if (role === "student") router.push("/student/dashboard");
       else if (role === "parent") router.push("/parent/dashboard");
+      else if (role === "faculty") router.push("/faculty/dashboard");
     }
   }, [user, role, loading, router]);
 
@@ -57,9 +58,17 @@ export default function LoginSelectionPage() {
   return (
     <div className="min-h-screen bg-slate-50 relative overflow-hidden flex flex-col font-sans selection:bg-[#38BDF8] selection:text-white">
       {/* Animated Background Elements - Clean, Light, Elegant */}
+      <Link
+        href="/"
+        className="fixed top-24 right-6 z-50 p-2.5 bg-white/60 hover:bg-white text-slate-600 hover:text-red-500 rounded-full backdrop-blur-md transition-all shadow-sm hover:shadow-md border border-slate-200"
+        title="Close and return to Home"
+      >
+        <X size={24} />
+      </Link>
+
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none bg-gradient-to-br from-white via-slate-50 to-[#E0F2FE]/30">
-        <motion.div 
-          animate={{ 
+        <motion.div
+          animate={{
             scale: [1, 1.1, 1],
             opacity: [0.3, 0.4, 0.3],
             x: [0, 50, 0],
@@ -68,8 +77,8 @@ export default function LoginSelectionPage() {
           transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
           className="absolute top-0 right-0 w-[600px] h-[600px] bg-[#00B4D8]/5 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/3"
         />
-        <motion.div 
-          animate={{ 
+        <motion.div
+          animate={{
             scale: [1, 1.2, 1],
             opacity: [0.2, 0.3, 0.2],
             x: [0, -40, 0],
@@ -78,17 +87,17 @@ export default function LoginSelectionPage() {
           transition={{ duration: 18, repeat: Infinity, ease: "easeInOut", delay: 2 }}
           className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-[#38BDF8]/10 rounded-full blur-[100px] translate-y-1/3 -translate-x-1/4"
         />
-        
+
         {/* Subtle Minimal Dots */}
         <div className="absolute inset-0 bg-[url('/noise.png')] opacity-[0.015] mix-blend-overlay"></div>
       </div>
 
       {/* Main Content */}
       <div className="relative z-10 flex-grow flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8 pt-12">
-        
+
         {/* Header Section */}
         <div className="text-center mb-10 max-w-3xl mx-auto w-full">
-          <motion.div 
+          <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.6, ease: "easeOut" }}
@@ -97,7 +106,7 @@ export default function LoginSelectionPage() {
             <div className="w-20 h-20 bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex items-center justify-center p-3 mb-5 border border-white/50 backdrop-blur-sm">
               <Image src="/logo.jpeg" alt="Vision Academy Logo" width={64} height={64} className="object-contain" priority />
             </div>
-            <h2 
+            <h2
               className="text-2xl sm:text-3xl font-bold text-[#0F4C81] tracking-wide uppercase"
               style={{ fontFamily: "'Times New Roman', Times, serif" }}
             >
@@ -108,7 +117,7 @@ export default function LoginSelectionPage() {
             </p>
           </motion.div>
 
-          <motion.h1 
+          <motion.h1
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.2, ease: "easeOut" }}
@@ -116,8 +125,8 @@ export default function LoginSelectionPage() {
           >
             Welcome to <span className="text-[#0F4C81]">Vision Academy</span>
           </motion.h1>
-          
-          <motion.p 
+
+          <motion.p
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.3, ease: "easeOut" }}
@@ -128,14 +137,14 @@ export default function LoginSelectionPage() {
         </div>
 
         {/* Premium Feature Badges */}
-        <motion.div 
+        <motion.div
           variants={containerVariants}
           initial="hidden"
           animate="visible"
           className="flex flex-wrap justify-center gap-3 mb-14 max-w-4xl"
         >
           {features.map((feature, idx) => (
-            <motion.div 
+            <motion.div
               key={idx}
               variants={itemVariants}
               whileHover={{ y: -2, backgroundColor: "#F8FAFC" }}
@@ -148,15 +157,15 @@ export default function LoginSelectionPage() {
         </motion.div>
 
         {/* Login Cards Grid - Premium Glass Design */}
-        <motion.div 
+        <motion.div
           variants={containerVariants}
           initial="hidden"
           animate="visible"
-          className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 w-full max-w-6xl"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8 w-full max-w-7xl"
         >
           {/* Student Card */}
           <Link href="/login/student" className="block h-full group">
-            <motion.div 
+            <motion.div
               variants={itemVariants}
               whileHover={{ y: -6, scale: 1.01 }}
               whileTap={{ scale: 0.98 }}
@@ -171,7 +180,7 @@ export default function LoginSelectionPage() {
                 Access study material, attendance, mock tests and your academic dashboard.
               </p>
               <div className="flex items-center text-[#00B4D8] font-semibold group-hover:gap-3 transition-all duration-300 gap-2 mt-auto">
-                Login as Student 
+                Login as Student
                 <div className="bg-[#E0F2FE] p-1.5 rounded-full group-hover:bg-[#00B4D8] group-hover:text-white transition-colors">
                   <ArrowRight size={16} />
                 </div>
@@ -181,7 +190,7 @@ export default function LoginSelectionPage() {
 
           {/* Parent Card */}
           <Link href="/login/parent" className="block h-full group">
-            <motion.div 
+            <motion.div
               variants={itemVariants}
               whileHover={{ y: -6, scale: 1.01 }}
               whileTap={{ scale: 0.98 }}
@@ -196,8 +205,33 @@ export default function LoginSelectionPage() {
                 Track your child&apos;s attendance, academic progress and important updates.
               </p>
               <div className="flex items-center text-[#0F4C81] font-semibold group-hover:gap-3 transition-all duration-300 gap-2 mt-auto">
-                Login as Parent 
+                Login as Parent
                 <div className="bg-[#F1F5F9] p-1.5 rounded-full group-hover:bg-[#0F4C81] group-hover:text-white transition-colors">
+                  <ArrowRight size={16} />
+                </div>
+              </div>
+            </motion.div>
+          </Link>
+
+          {/* Faculty Card */}
+          <Link href="/login/faculty" className="block h-full group">
+            <motion.div
+              variants={itemVariants}
+              whileHover={{ y: -6, scale: 1.01 }}
+              whileTap={{ scale: 0.98 }}
+              className="bg-white/80 backdrop-blur-xl p-8 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgb(249,115,22,0.1)] border border-slate-100 hover:border-[#F97316]/30 transition-all duration-400 h-full flex flex-col relative overflow-hidden"
+            >
+              <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-[#F97316] to-[#fdba74] opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="w-16 h-16 bg-[#FFF7ED] text-[#F97316] rounded-2xl flex items-center justify-center mb-8 group-hover:scale-110 transition-transform duration-500 shadow-inner">
+                <BookOpen size={32} strokeWidth={1.5} />
+              </div>
+              <h3 className="text-2xl font-bold text-slate-800 mb-3 group-hover:text-[#F97316] transition-colors">Faculty Login</h3>
+              <p className="text-slate-500 leading-relaxed flex-grow mb-8 font-medium">
+                Manage your profile, classes, subjects, and monitor student progress.
+              </p>
+              <div className="flex items-center text-[#F97316] font-semibold group-hover:gap-3 transition-all duration-300 gap-2 mt-auto">
+                Login as Faculty
+                <div className="bg-[#FFF7ED] p-1.5 rounded-full group-hover:bg-[#F97316] group-hover:text-white transition-colors">
                   <ArrowRight size={16} />
                 </div>
               </div>
@@ -206,7 +240,7 @@ export default function LoginSelectionPage() {
 
           {/* Admin Card */}
           <Link href="/login/admin" className="block h-full group">
-            <motion.div 
+            <motion.div
               variants={itemVariants}
               whileHover={{ y: -6, scale: 1.01 }}
               whileTap={{ scale: 0.98 }}
@@ -221,7 +255,7 @@ export default function LoginSelectionPage() {
                 Manage students, parents, staff and overall academy operations.
               </p>
               <div className="flex items-center text-[#38BDF8] font-semibold group-hover:gap-3 transition-all duration-300 gap-2 mt-auto">
-                Login as Admin 
+                Login as Admin
                 <div className="bg-white shadow-sm p-1.5 rounded-full group-hover:bg-[#38BDF8] group-hover:text-white transition-colors">
                   <ArrowRight size={16} />
                 </div>
@@ -232,7 +266,7 @@ export default function LoginSelectionPage() {
       </div>
 
       {/* Bottom Footer Section */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.6, duration: 0.6, ease: "easeOut" }}
@@ -241,8 +275,8 @@ export default function LoginSelectionPage() {
         <p className="text-slate-500 mb-5 font-medium tracking-wide">
           Need Help? <span className="text-[#0F4C81] font-semibold">Contact Vision Academy Administration</span>
         </p>
-        <Link 
-          href="/" 
+        <Link
+          href="/"
           className="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-[#0F4C81] transition-all bg-white px-8 py-3.5 rounded-full shadow-[0_2px_15px_rgb(0,0,0,0.05)] border border-slate-100 hover:border-[#0F4C81]/20 hover:shadow-[0_8px_25px_rgb(15,76,129,0.1)] hover:-translate-y-0.5 group"
         >
           <Home size={18} className="text-slate-400 group-hover:text-[#0F4C81] transition-colors" />
