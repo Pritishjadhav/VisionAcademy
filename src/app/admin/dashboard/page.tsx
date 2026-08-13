@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import { Button } from "@/components/ui/Button";
-import { Plus, User, GraduationCap, ChevronRight } from "lucide-react";
+import { Plus, User, GraduationCap, ChevronRight, CheckSquare } from "lucide-react";
 import { StudentFormModal } from "@/components/admin/StudentFormModal";
 import { AdminManagement } from "@/components/admin/AdminManagement";
 import { FacultyManagement } from "@/components/admin/FacultyManagement";
@@ -70,6 +70,12 @@ export default function AdminDashboard() {
           <p className="text-slate-500">Select a batch to manage its students.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          <Link href="/admin/grade-omr">
+            <Button variant="outline" className="flex items-center gap-2">
+              <CheckSquare size={18} />
+              OMR Grading
+            </Button>
+          </Link>
           <Button 
             variant="gradient" 
             onClick={() => {
