@@ -6,6 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { db } from "@/lib/firebase/config";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { linkParentAccount } from "@/actions/users";
+import { getRequiredIdToken } from "@/lib/auth-token";
 import { Button } from "@/components/ui/Button";
 import { Loader2, User, Mail, Phone, Calendar, Users, GraduationCap, Edit2, Save } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -112,7 +113,7 @@ export default function StudentProfilePage() {
       
       // If parent mobile changed or was added, try to link/create the parent account
       if (formattedParentMobile && formattedParentMobile !== oldParentMobile) {
-        await linkParentAccount(user.uid, formData.name, formattedParentMobile);
+        await linkParentAccount(await getRequiredIdToken(), user.uid, formData.name, formattedParentMobile);
       }
       
       toast.success(isEditing && formData.batch ? "Profile updated successfully." : "Your profile has been saved successfully.");

@@ -12,6 +12,7 @@ import toast from "react-hot-toast";
 import { deleteStudentUser } from "@/actions/users";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { getRequiredIdToken } from "@/lib/auth-token";
 
 interface Student {
   id: string;
@@ -105,7 +106,7 @@ export default function BatchPage({ params }: { params: Promise<{ batchId: strin
     if (!confirm("Are you sure you want to delete this student's profile?")) return;
     
     try {
-      const result = await deleteStudentUser(id);
+      const result = await deleteStudentUser(await getRequiredIdToken(), id);
       if (result.success) {
         toast.success("Student deleted successfully");
       } else {

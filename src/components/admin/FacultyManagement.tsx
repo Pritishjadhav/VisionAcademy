@@ -9,6 +9,7 @@ import { Plus, Search, BookOpen, CheckCircle, XCircle, Trash2 } from "lucide-rea
 import toast from "react-hot-toast";
 import { useAuth } from "@/context/AuthContext";
 import { createFacultyUser, deleteFacultyUser } from "@/actions/faculty";
+import { getRequiredIdToken } from "@/lib/auth-token";
 
 interface FacultyUser {
   id: string;
@@ -68,7 +69,7 @@ export function FacultyManagement() {
     if (!confirm(`Are you sure you want to permanently delete the faculty ${email}?`)) return;
     
     try {
-      const result = await deleteFacultyUser(id);
+      const result = await deleteFacultyUser(await getRequiredIdToken(), id);
       if (result.success) {
         toast.success("Faculty deleted permanently");
         fetchFaculty();
@@ -86,10 +87,10 @@ export function FacultyManagement() {
     
     setIsAdding(true);
     try {
-      const result = await createFacultyUser(newEmail);
+      const result = await createFacultyUser(await getRequiredIdToken(), newEmail);
       
       if (result.success) {
-        toast.success("Faculty added successfully!");
+        toast.success(`Faculty added. Temporary password: ${result.temporaryPassword}`, { duration: 15000 });
         setNewEmail("");
         fetchFaculty();
       } else {

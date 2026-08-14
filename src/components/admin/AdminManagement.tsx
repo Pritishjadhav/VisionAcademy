@@ -9,6 +9,7 @@ import { Plus, Search, ShieldAlert, CheckCircle, XCircle, Trash2 } from "lucide-
 import toast from "react-hot-toast";
 import { useAuth } from "@/context/AuthContext";
 import { createAdminUser, deleteAdminUser } from "@/actions/users";
+import { getRequiredIdToken } from "@/lib/auth-token";
 
 interface AdminUser {
   id: string;
@@ -42,13 +43,13 @@ export function AdminManagement() {
   };
 
   useEffect(() => {
-    if (role === "super_admin" || role === "admin") {
+    if (role === "super_admin") {
       fetchAdmins();
     }
   }, [role]);
 
   const handleToggleEnable = async (id: string, currentStatus: boolean) => {
-    if (role !== "super_admin" && role !== "admin") return;
+    if (role !== "super_admin") return;
     try {
       await updateDoc(doc(db, "admins", id), {
         enabled: !currentStatus
@@ -61,11 +62,11 @@ export function AdminManagement() {
   };
 
   const handleDeleteAdmin = async (id: string, email: string) => {
-    if (role !== "super_admin" && role !== "admin") return;
+    if (role !== "super_admin") return;
     if (!confirm(`Are you sure you want to permanently delete the admin ${email}?`)) return;
     
     try {
-      const result = await deleteAdminUser(id);
+      const result = await deleteAdminUser(await getRequiredIdToken(), id);
       if (result.success) {
         toast.success("Admin deleted permanently");
         fetchAdmins();
@@ -79,14 +80,14 @@ export function AdminManagement() {
 
   const handleAddAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newEmail || (role !== "super_admin" && role !== "admin")) return;
+    if (!newEmail || role !== "super_admin") return;
     
     setIsAdding(true);
     try {
-      const result = await createAdminUser(newEmail);
+      const result = await createAdminUser(await getRequiredIdToken(), newEmail);
       
       if (result.success) {
-        toast.success(`Admin added successfully! They can log in using their email as the password.`);
+        toast.success(`Admin added. Temporary password: ${result.temporaryPassword}`, { duration: 15000 });
         setNewEmail("");
         fetchAdmins();
       } else {
@@ -99,7 +100,7 @@ export function AdminManagement() {
     }
   };
 
-  if (role !== "super_admin" && role !== "admin") return null;
+  if (role !== "super_admin") return null;
 
   const filteredAdmins = admins.filter(admin => 
     admin.email.toLowerCase().includes(search.toLowerCase())

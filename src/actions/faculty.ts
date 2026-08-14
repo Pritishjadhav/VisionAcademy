@@ -1,15 +1,20 @@
 "use server";
 
 import { adminAuth, adminDb } from "@/lib/firebase/admin";
+import { randomBytes } from "node:crypto";
+import { enforceRateLimit } from "@/lib/server/rate-limit";
+import { requireAdmin } from "@/lib/server/auth";
 
-export async function createFacultyUser(email: string) {
+export async function createFacultyUser(idToken: string, email: string) {
   try {
+    const actor = await requireAdmin(idToken);
+    enforceRateLimit(`action:create-faculty:${actor.uid}`, 8);
+    const temporaryPassword = randomBytes(12).toString("base64url");
     let userRecord;
     try {
-      // Create auth user with email as both username and password
       userRecord = await adminAuth.createUser({
         email: email,
-        password: email, // Set password to exactly the email as requested
+        password: temporaryPassword,
         displayName: "Faculty",
       });
     } catch (authError: unknown) {
@@ -32,15 +37,17 @@ export async function createFacultyUser(email: string) {
       updatedAt: new Date().toISOString(),
     });
 
-    return { success: true, uid: userRecord.uid };
+    return { success: true, uid: userRecord.uid, temporaryPassword };
   } catch (error: unknown) {
     console.error("Error creating faculty:", error);
     return { success: false, error: error instanceof Error ? error.message : "Failed to create faculty on server" };
   }
 }
 
-export async function deleteFacultyUser(uid: string) {
+export async function deleteFacultyUser(idToken: string, uid: string) {
   try {
+    const actor = await requireAdmin(idToken);
+    enforceRateLimit(`action:delete-faculty:${actor.uid}`, 8);
     // Delete from Firebase Auth
     try {
       await adminAuth.deleteUser(uid);

@@ -2,6 +2,7 @@
 
 import React, { useState, useRef } from "react";
 import { Upload, FileImage, CheckCircle, AlertCircle, RefreshCw, FileText, Download, ListChecks, Settings, ChevronRight, ChevronLeft, Save } from "lucide-react";
+import { downloadOmrSheet, gradeOmrSheet } from "@/lib/omr/client";
 
 type Step = 'setup' | 'set-answers' | 'grade';
 
@@ -45,16 +46,23 @@ export default function GradeOMRPage() {
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     const droppedFile = e.dataTransfer.files?.[0];
-    if (droppedFile && (droppedFile.type.startsWith("image/") || droppedFile.type === "application/pdf")) {
+    if (droppedFile && ["image/jpeg", "image/png", "image/webp"].includes(droppedFile.type)) {
       setFile(droppedFile);
       setPreviewUrl(URL.createObjectURL(droppedFile));
       setResult(null);
       setError(null);
+    } else {
+      setError("Upload a JPEG, PNG, or WebP image.");
     }
   };
 
-  const handleGeneratePdf = () => {
-    window.open(`http://localhost:8000/generate-omr?questions=${genNumQuestions}&choices=${genNumChoices}&title=${encodeURIComponent(genTitle)}`, "_blank");
+  const handleGeneratePdf = async () => {
+    setError(null);
+    try {
+      await downloadOmrSheet(genNumQuestions, genNumChoices, genTitle);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Failed to generate the OMR sheet.");
+    }
   };
 
   const startAnswerKeySetup = () => {
@@ -87,38 +95,22 @@ export default function GradeOMRPage() {
     setLoading(true);
     setError(null);
 
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("num_questions", numQuestions.toString());
-    formData.append("num_choices", numChoices.toString());
-    formData.append("answer_key", answers.join(","));
-
     try {
-      // Calling the Python FastAPI backend
-      const response = await fetch("http://localhost:8000/grade", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || "Failed to grade OMR sheet");
-      }
-
+      const data = await gradeOmrSheet(file, numQuestions, numChoices, answers);
       setResult({
-        score: data.data.score,
-        image: data.data.graded_image_base64,
+        score: data.score,
+        image: data.graded_image_base64,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      setError(err.message || "An unexpected error occurred.");
+      setError(err instanceof Error ? err.message : "An unexpected error occurred.");
     } finally {
       setLoading(false);
     }
   };
 
   const reset = () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
     setFile(null);
     setPreviewUrl(null);
     setResult(null);
@@ -352,10 +344,11 @@ export default function GradeOMRPage() {
                         className="border-2 border-dashed border-gray-300 rounded-xl p-12 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 group flex-1 flex flex-col items-center justify-center"
                       >
                         <FileImage className="w-16 h-16 mx-auto text-gray-400 group-hover:text-blue-500 mb-4 transition-colors" />
-                        <p className="text-gray-600 font-medium">Click or drag student's filled sheet</p>
-                        <p className="text-sm text-gray-400 mt-2">Supports any image file or PDF</p>
+                        <p className="text-gray-600 font-medium">Click or drag the student&apos;s filled sheet</p>
+                        <p className="text-sm text-gray-400 mt-2">Supports JPEG, PNG, and WebP images</p>
                         <input
                           type="file"
+                          accept="image/jpeg,image/png,image/webp"
                           ref={fileInputRef}
                           onChange={handleFileChange}
                           className="hidden"
