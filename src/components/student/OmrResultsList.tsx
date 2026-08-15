@@ -1,29 +1,37 @@
 "use client";
 
-import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { CheckCircle2, FileCheck2, XCircle } from "lucide-react";
-import { db } from "@/lib/firebase/config";
+import { getOmrResultsForStudent } from "@/actions/omr";
+import { getRequiredIdToken } from "@/lib/auth-token";
 import { OmrResult } from "@/lib/types/omr";
 
 export function OmrResultsList({ studentId }: { studentId: string }) {
   const [results, setResults] = useState<OmrResult[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const resultsQuery = query(collection(db, "omrResults"), where("studentId", "==", studentId));
-    return onSnapshot(
-      resultsQuery,
-      (snapshot) => {
-        setResults(
-          snapshot.docs
-            .map((document) => ({ id: document.id, ...document.data() }) as OmrResult)
-            .sort((a, b) => b.testDate.localeCompare(a.testDate)),
-        );
-        setLoading(false);
-      },
-      () => setLoading(false),
-    );
+    let active = true;
+    async function loadResults() {
+      try {
+        const data = await getOmrResultsForStudent(await getRequiredIdToken(), studentId);
+        if (active) {
+          setResults(data);
+          setError(null);
+        }
+      } catch (loadError) {
+        if (active) {
+          setError(loadError instanceof Error ? loadError.message : "Could not load OMR results.");
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    void loadResults();
+    return () => {
+      active = false;
+    };
   }, [studentId]);
 
   return (
@@ -37,6 +45,8 @@ export function OmrResultsList({ studentId }: { studentId: string }) {
       </div>
       {loading ? (
         <div className="bg-white border border-slate-100 rounded-2xl p-6 text-slate-500">Loading OMR results...</div>
+      ) : error ? (
+        <div className="bg-red-50 border border-red-100 rounded-2xl p-6 text-red-700">{error}</div>
       ) : results.length === 0 ? (
         <div className="bg-white border border-slate-100 rounded-2xl p-6 text-slate-500">No OMR results published yet.</div>
       ) : (
@@ -72,6 +82,11 @@ export function OmrResultsList({ studentId }: { studentId: string }) {
               <p className="text-sm font-semibold text-slate-600 mt-4">
                 Score: {result.percentage}% · Positive: +{result.positiveMarks} · Negative: −{result.negativeMarks}
               </p>
+              {result.examType === "JEE" && (
+                <p className="text-xs text-amber-700 mt-2">
+                  Numerical section: {result.numericalCorrect ?? 0} correct · {result.numericalWrong ?? 0} wrong · {result.numericalUnattempted ?? 15} blank
+                </p>
+              )}
             </article>
           ))}
         </div>

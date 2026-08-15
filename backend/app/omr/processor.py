@@ -188,12 +188,9 @@ def _find_answer_area(image: np.ndarray, questions: int = 30) -> np.ndarray:
 
 def _warp_answer_area(image: np.ndarray, corners: np.ndarray, questions: int, choices: int) -> tuple[np.ndarray, np.ndarray]:
     ordered = _order_points(corners)
-    top_width = np.linalg.norm(ordered[1] - ordered[0])
-    left_height = np.linalg.norm(ordered[3] - ordered[0])
-    if questions > choices and top_width > left_height:
-        # The photographed sheet is sideways. Rotate the source corners so the
-        # long question axis maps to the output height.
-        ordered = np.array([ordered[1], ordered[2], ordered[3], ordered[0]], dtype=np.float32)
+    # Keep the submitted orientation. Inferring rotation from the answer-area
+    # aspect ratio is unsafe because multi-column generated grids are wider
+    # than they are tall and were being rotated despite upright uploads.
     # A square normalized grid matches the legacy scanner and keeps bubble
     # outlines at a stable pixel thickness across different question counts.
     target_height = WARP_WIDTH
@@ -288,7 +285,7 @@ def grade_image(
     median_fill = max(float(np.median(fill_ratios)), 0.001)
     maximum_fill = float(np.max(fill_ratios))
     sheet_has_marks = (
-        maximum_fill >= 0.22
+        maximum_fill >= (0.10 if exam_type == "CUSTOM" else 0.22)
         if reference_layout
         else maximum_fill / median_fill >= 1.2
         or (questions < 10 and maximum_fill >= 0.12)

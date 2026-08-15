@@ -74,6 +74,27 @@ def test_generates_jee_sheet_with_numerical_gaps() -> None:
     assert "75" in text
 
 
+def test_generates_custom_40_question_sheet_with_five_choices() -> None:
+    import fitz
+
+    code, response = run_cli(
+        {
+            "operation": "generate",
+            "questions": 40,
+            "choices": 5,
+            "title": "Custom Practice Test",
+            "exam_type": "CUSTOM",
+        }
+    )
+    pdf = fitz.open(stream=base64.b64decode(response["data"]["pdf_base64"]), filetype="pdf")
+    text = pdf[0].get_text()
+    assert code == 0
+    assert response["success"] is True
+    assert "Custom Practice Test" in text
+    assert "40" in text
+    assert "E" in text
+
+
 def test_grades_image_without_http_service() -> None:
     success, encoded = cv2.imencode(".jpg", make_sheet([1, 3, 4, 2], 4))
     assert success
