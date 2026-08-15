@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+from math import ceil
 
 import cv2
 import numpy as np
@@ -10,6 +11,7 @@ from app.omr.models import GradeResult
 
 MAX_IMAGE_DIMENSION = 6000
 WARP_WIDTH = 1000
+REFERENCE_GRID_WIDTH_POINTS = 533
 
 
 def decode_image(content: bytes) -> np.ndarray:
@@ -79,7 +81,7 @@ def _order_points(points: np.ndarray) -> np.ndarray:
     return ordered
 
 
-def _find_answer_area(image: np.ndarray) -> np.ndarray:
+def _find_answer_area(image: np.ndarray, questions: int = 30) -> np.ndarray:
     detection_image = image
     scale = 1.0
     if max(image.shape[:2]) > 1600:
@@ -99,7 +101,8 @@ def _find_answer_area(image: np.ndarray) -> np.ndarray:
     # Low-contrast phone photos need a permissive edge threshold. The area
     # and four-corner checks below filter the additional small contours.
     edges = cv2.Canny(blurred, 10, 70)
-    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    retrieval_mode = cv2.RETR_LIST if questions > 30 else cv2.RETR_EXTERNAL
+    contours, _ = cv2.findContours(edges, retrieval_mode, cv2.CHAIN_APPROX_SIMPLE)
     minimum_area = detection_image.shape[0] * detection_image.shape[1] * 0.08
 
     rectangles: list[tuple[float, np.ndarray]] = []
@@ -150,7 +153,24 @@ def _find_answer_area(image: np.ndarray) -> np.ndarray:
             "Could not find the answer area. Upload the generated OMR sheet with all four edges visible and minimal glare.",
             code="ANSWER_AREA_NOT_FOUND",
         )
-    corners = max(rectangles, key=lambda item: item[0])[1].astype(np.float32)
+    def rectangle_score(item: tuple[float, np.ndarray]) -> float:
+        area, corners = item
+        ordered = _order_points(corners)
+        width = max(
+            np.linalg.norm(ordered[1] - ordered[0]),
+            np.linalg.norm(ordered[2] - ordered[3]),
+        )
+        height = max(
+            np.linalg.norm(ordered[3] - ordered[0]),
+            np.linalg.norm(ordered[2] - ordered[1]),
+        )
+        squareness = min(width, height) / max(width, height, 1.0)
+        return area * squareness**4
+
+    corners = max(
+        rectangles,
+        key=rectangle_score if questions > 30 else lambda item: item[0],
+    )[1].astype(np.float32)
     return corners / scale
 
 
@@ -172,46 +192,87 @@ def _warp_answer_area(image: np.ndarray, corners: np.ndarray, questions: int, ch
     return cv2.warpPerspective(image, matrix, (WARP_WIDTH, target_height)), ordered
 
 
-def _cell_ink_counts(threshold: np.ndarray, questions: int, choices: int) -> np.ndarray:
+def _cell_ink_counts(
+    threshold: np.ndarray,
+    questions: int,
+    choices: int,
+    reference_layout: bool = False,
+) -> np.ndarray:
     height, width = threshold.shape
     counts = np.zeros((questions, choices), dtype=np.float32)
-    for row in range(questions):
-        y1, y2 = round(row * height / questions), round((row + 1) * height / questions)
+    columns = ceil(questions / 30)
+    rows = min(30, questions)
+    block_width = width / columns
+    label_fraction = min(15 * columns / REFERENCE_GRID_WIDTH_POINTS, 0.18) if reference_layout else 0
+    trailing_fraction = 5 * columns / REFERENCE_GRID_WIDTH_POINTS if reference_layout else 0
+    header_height = round(height * 0.044) if reference_layout else 0
+    answer_height = height - header_height
+    for question in range(questions):
+        question_column, row = divmod(question, 30)
+        y1 = header_height + round(row * answer_height / rows)
+        y2 = header_height + round((row + 1) * answer_height / rows)
+        choices_left = (question_column + label_fraction) * block_width
+        choices_width = block_width * (1 - label_fraction - trailing_fraction)
         for column in range(choices):
-            x1, x2 = round(column * width / choices), round((column + 1) * width / choices)
+            x1 = round(choices_left + column * choices_width / choices)
+            x2 = round(choices_left + (column + 1) * choices_width / choices)
             cell = threshold[y1:y2, x1:x2]
             if cell.size:
-                counts[row, column] = cv2.countNonZero(cell)
+                counts[question, column] = cv2.countNonZero(cell)
     return counts
 
 
-def _cell_fill_ratios(threshold: np.ndarray, questions: int, choices: int) -> np.ndarray:
+def _cell_fill_ratios(
+    threshold: np.ndarray,
+    questions: int,
+    choices: int,
+    reference_layout: bool = False,
+) -> np.ndarray:
     height, width = threshold.shape
     ratios = np.zeros((questions, choices), dtype=np.float32)
-    for row in range(questions):
-        y1, y2 = round(row * height / questions), round((row + 1) * height / questions)
+    columns = ceil(questions / 30)
+    rows = min(30, questions)
+    block_width = width / columns
+    label_fraction = min(15 * columns / REFERENCE_GRID_WIDTH_POINTS, 0.18) if reference_layout else 0
+    trailing_fraction = 5 * columns / REFERENCE_GRID_WIDTH_POINTS if reference_layout else 0
+    header_height = round(height * 0.044) if reference_layout else 0
+    answer_height = height - header_height
+    for question in range(questions):
+        question_column, row = divmod(question, 30)
+        y1 = header_height + round(row * answer_height / rows)
+        y2 = header_height + round((row + 1) * answer_height / rows)
+        choices_left = (question_column + label_fraction) * block_width
+        choices_width = block_width * (1 - label_fraction - trailing_fraction)
         for column in range(choices):
-            x1, x2 = round(column * width / choices), round((column + 1) * width / choices)
+            x1 = round(choices_left + column * choices_width / choices)
+            x2 = round(choices_left + (column + 1) * choices_width / choices)
             cell = threshold[y1:y2, x1:x2]
             margin_y = max(2, int(cell.shape[0] * 0.2))
             margin_x = max(2, int(cell.shape[1] * 0.2))
             core = cell[margin_y:-margin_y, margin_x:-margin_x]
             if core.size:
-                ratios[row, column] = cv2.countNonZero(core) / core.size
+                ratios[question, column] = cv2.countNonZero(core) / core.size
     return ratios
 
 
 def grade_image(image: np.ndarray, questions: int, choices: int, answer_key: list[int]) -> GradeResult:
-    corners = _find_answer_area(image)
+    corners = _find_answer_area(image, questions)
     warped, _ = _warp_answer_area(image, corners, questions, choices)
     gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
     threshold = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
-    ink_counts = _cell_ink_counts(threshold, questions, choices)
-    fill_ratios = _cell_fill_ratios(threshold, questions, choices)
+    top_band = threshold[: max(1, round(threshold.shape[0] * 0.1)), :]
+    reference_layout = (
+        questions > 30
+        or cv2.countNonZero(top_band) / top_band.size < 0.1
+    )
+    ink_counts = _cell_ink_counts(threshold, questions, choices, reference_layout)
+    fill_ratios = _cell_fill_ratios(threshold, questions, choices, reference_layout)
     median_fill = max(float(np.median(fill_ratios)), 0.001)
     maximum_fill = float(np.max(fill_ratios))
     sheet_has_marks = (
-        maximum_fill / median_fill >= 1.5
+        maximum_fill >= 0.22
+        if reference_layout
+        else maximum_fill / median_fill >= 1.2
         or (questions < 10 and maximum_fill >= 0.12)
     )
 
@@ -219,8 +280,19 @@ def grade_image(image: np.ndarray, questions: int, choices: int, answer_key: lis
     confidence: list[float] = []
     grading: list[bool] = []
     annotated = warped.copy()
-    cell_height = annotated.shape[0] / questions
-    cell_width = annotated.shape[1] / choices
+    layout_columns = ceil(questions / 30)
+    layout_rows = min(30, questions)
+    block_width = annotated.shape[1] / layout_columns
+    label_fraction = (
+        min(15 * layout_columns / REFERENCE_GRID_WIDTH_POINTS, 0.18)
+        if reference_layout
+        else 0
+    )
+    trailing_fraction = 5 * layout_columns / REFERENCE_GRID_WIDTH_POINTS if reference_layout else 0
+    header_height = annotated.shape[0] * 0.044 if reference_layout else 0
+    cell_height = (annotated.shape[0] - header_height) / layout_rows
+    choices_width = block_width * (1 - label_fraction - trailing_fraction)
+    cell_width = choices_width / choices
 
     for row in range(questions):
         core_ranked = np.argsort(fill_ratios[row])[::-1]
@@ -268,12 +340,14 @@ def grade_image(image: np.ndarray, questions: int, choices: int, answer_key: lis
         correct = selected_answer == answer_key[row]
         grading.append(correct)
 
-        center_y = round((row + 0.5) * cell_height)
+        layout_column, layout_row = divmod(row, 30)
+        center_y = round(header_height + (layout_row + 0.5) * cell_height)
+        choices_left = (layout_column + label_fraction) * block_width
         if selected_answer is not None:
-            center_x = round((selected_answer - 0.5) * cell_width)
+            center_x = round(choices_left + (selected_answer - 0.5) * cell_width)
             cv2.circle(annotated, (center_x, center_y), 14, (0, 180, 0) if correct else (0, 0, 230), 4)
         if not correct:
-            correct_x = round((answer_key[row] - 0.5) * cell_width)
+            correct_x = round(choices_left + (answer_key[row] - 0.5) * cell_width)
             cv2.circle(annotated, (correct_x, center_y), 10, (0, 180, 0), 3)
 
     correct_count = sum(grading)

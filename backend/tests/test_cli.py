@@ -34,7 +34,7 @@ def test_generates_pdf_without_http_service() -> None:
     assert pdf.startswith(b"%PDF")
 
 
-def test_generates_180_question_pdf_across_three_pages() -> None:
+def test_generates_180_question_pdf_in_reference_layout() -> None:
     import fitz
 
     code, response = run_cli(
@@ -43,10 +43,12 @@ def test_generates_180_question_pdf_across_three_pages() -> None:
     pdf = fitz.open(stream=base64.b64decode(response["data"]["pdf_base64"]), filetype="pdf")
     assert code == 0
     assert response["success"] is True
-    assert pdf.page_count == 3
-    assert "Questions 1-60" in pdf[0].get_text()
-    assert "Questions 61-120" in pdf[1].get_text()
-    assert "Questions 121-180" in pdf[2].get_text()
+    assert pdf.page_count == 1
+    text = pdf[0].get_text()
+    assert "OMR ANSWER SHEET" in text
+    assert "ROLL NO." in text
+    assert "TEST ID" in text
+    assert "180" in text
 
 
 def test_grades_image_without_http_service() -> None:

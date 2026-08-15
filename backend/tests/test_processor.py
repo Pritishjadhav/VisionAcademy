@@ -8,6 +8,7 @@ import pytest
 
 from app.errors import OmrError
 from app.omr.processor import decode_document, decode_image, encode_jpeg_data_url, grade_image
+from app.omr.sheet_generator import generate_sheet_pdf
 
 
 def make_sheet(
@@ -168,3 +169,22 @@ def test_finds_answer_area_when_outer_border_has_small_gaps() -> None:
 
     result = grade_image(image, 4, 4, answers)
     assert result.score == 100
+
+
+def test_generated_180_question_sheet_is_detectable() -> None:
+    image = decode_document(
+        generate_sheet_pdf(180, 4, "Vision Academy"),
+        "application/pdf",
+    )
+    result = grade_image(image, 180, 4, [1] * 180)
+    assert result.total_questions == 180
+    assert result.selected_answers == [None] * 180
+
+
+def test_generated_20_question_sheet_has_no_false_marks() -> None:
+    image = decode_document(
+        generate_sheet_pdf(20, 4, "Vision Academy"),
+        "application/pdf",
+    )
+    result = grade_image(image, 20, 4, [1] * 20)
+    assert result.selected_answers == [None] * 20

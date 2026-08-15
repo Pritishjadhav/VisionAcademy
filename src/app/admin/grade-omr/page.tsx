@@ -173,7 +173,7 @@ export default function GradeOMRPage() {
                 value={genNumQuestions}
                 onChange={(e) => setGenNumQuestions(Number(e.target.value))}
               />
-              <span className="text-xs text-gray-400 mt-1">Up to 180 questions, 60 per page</span>
+              <span className="text-xs text-gray-400 mt-1">Up to 180 questions on one OMR sheet</span>
             </div>
             <div className="flex flex-col w-full sm:w-auto">
               <label className="text-xs font-semibold text-gray-600 mb-1">Options</label>
