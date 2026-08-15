@@ -12,6 +12,8 @@ npm run dev
 The npm `predev` and `prestart` hooks create `backend/.venv` and install
 `requirements.txt` when its contents change.
 
+Grading accepts PDF (first page), JPEG, PNG, WebP, TIFF, and BMP scans.
+
 ## Test
 
 ```powershell

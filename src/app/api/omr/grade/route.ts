@@ -18,9 +18,22 @@ export async function POST(request: Request): Promise<Response> {
     if (!(file instanceof File)) {
       return Response.json({ success: false, error: "An OMR image is required." }, { status: 422 });
     }
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+    const allowedTypes = [
+      "application/pdf",
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/tiff",
+      "image/bmp",
+    ];
+    const allowedExtensions = [".pdf", ".jpg", ".jpeg", ".png", ".webp", ".tif", ".tiff", ".bmp"];
+    const lowerName = file.name.toLowerCase();
+    if (
+      !allowedTypes.includes(file.type) &&
+      !allowedExtensions.some((extension) => lowerName.endsWith(extension))
+    ) {
       return Response.json(
-        { success: false, error: "Upload a JPEG, PNG, or WebP image." },
+        { success: false, error: "Upload a PDF, JPEG, PNG, WebP, TIFF, or BMP file." },
         { status: 415 },
       );
     }
@@ -34,6 +47,7 @@ export async function POST(request: Request): Promise<Response> {
       choices: Number(form.get("num_choices")),
       answer_key: String(form.get("answer_key") || ""),
       image_base64: Buffer.from(await file.arrayBuffer()).toString("base64"),
+      media_type: file.type,
     });
     return Response.json({ success: true, data });
   } catch (error) {

@@ -26,6 +26,47 @@ def decode_image(content: bytes) -> np.ndarray:
     return image
 
 
+def decode_document(content: bytes, media_type: str = "") -> np.ndarray:
+    if media_type == "application/pdf" or content.lstrip().startswith(b"%PDF"):
+        try:
+            import fitz
+
+            document = fitz.open(stream=content, filetype="pdf")
+            if document.needs_pass:
+                raise OmrError(
+                    "Password-protected PDFs are not supported.",
+                    code="PROTECTED_PDF",
+                    status_code=415,
+                )
+            if document.page_count == 0:
+                raise OmrError("The PDF has no pages.", code="INVALID_PDF", status_code=415)
+            page = document.load_page(0)
+            pixmap = page.get_pixmap(dpi=180, alpha=False)
+            image = np.frombuffer(pixmap.samples, dtype=np.uint8).reshape(
+                pixmap.height,
+                pixmap.width,
+                pixmap.n,
+            )
+            image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+            document.close()
+            if max(image.shape[:2]) > MAX_IMAGE_DIMENSION:
+                raise OmrError(
+                    f"PDF page dimensions cannot exceed {MAX_IMAGE_DIMENSION}px.",
+                    code="IMAGE_TOO_LARGE",
+                    status_code=413,
+                )
+            return image
+        except OmrError:
+            raise
+        except Exception as error:
+            raise OmrError(
+                "The uploaded PDF could not be read.",
+                code="INVALID_PDF",
+                status_code=415,
+            ) from error
+    return decode_image(content)
+
+
 def _order_points(points: np.ndarray) -> np.ndarray:
     points = points.reshape(4, 2).astype(np.float32)
     ordered = np.zeros((4, 2), dtype=np.float32)
@@ -72,8 +113,41 @@ def _find_answer_area(image: np.ndarray) -> np.ndarray:
             rectangles.append((area, approximation))
 
     if not rectangles:
+        # Scans and folded sheets often contain small gaps in the outer border.
+        # Isolate long horizontal/vertical lines, bridge those gaps, then use
+        # their combined extent as the answer-area quadrilateral.
+        inverted = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
+        horizontal_width = max(20, round(detection_image.shape[1] * 0.08))
+        vertical_height = max(20, round(detection_image.shape[0] * 0.08))
+        horizontal = cv2.morphologyEx(
+            inverted,
+            cv2.MORPH_OPEN,
+            cv2.getStructuringElement(cv2.MORPH_RECT, (horizontal_width, 1)),
+        )
+        vertical = cv2.morphologyEx(
+            inverted,
+            cv2.MORPH_OPEN,
+            cv2.getStructuringElement(cv2.MORPH_RECT, (1, vertical_height)),
+        )
+        lines = cv2.bitwise_or(horizontal, vertical)
+        lines = cv2.morphologyEx(
+            lines,
+            cv2.MORPH_CLOSE,
+            cv2.getStructuringElement(
+                cv2.MORPH_RECT,
+                (max(5, horizontal_width), max(5, vertical_height)),
+            ),
+        )
+        points = cv2.findNonZero(lines)
+        if points is not None:
+            box = cv2.boxPoints(cv2.minAreaRect(points))
+            area = cv2.contourArea(box.astype(np.float32))
+            if area >= minimum_area:
+                rectangles.append((area, box.reshape(4, 1, 2)))
+
+    if not rectangles:
         raise OmrError(
-            "Could not find the rectangular answer area. Use a clear, straight photo with the full border visible.",
+            "Could not find the answer area. Upload the generated OMR sheet with all four edges visible and minimal glare.",
             code="ANSWER_AREA_NOT_FOUND",
         )
     corners = max(rectangles, key=lambda item: item[0])[1].astype(np.float32)

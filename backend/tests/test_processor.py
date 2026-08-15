@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 
 from app.errors import OmrError
-from app.omr.processor import decode_image, encode_jpeg_data_url, grade_image
+from app.omr.processor import decode_document, decode_image, encode_jpeg_data_url, grade_image
 
 
 def make_sheet(
@@ -143,3 +143,28 @@ def test_decode_rejects_corrupt_image() -> None:
     with pytest.raises(OmrError) as error:
         decode_image(b"not an image")
     assert error.value.code == "INVALID_IMAGE"
+
+
+def test_decodes_first_page_of_pdf() -> None:
+    import fitz
+
+    source = make_sheet([1, 2, 3, 4], 4)
+    success, encoded = cv2.imencode(".png", source)
+    assert success
+    document = fitz.open()
+    page = document.new_page(width=800, height=800)
+    page.insert_image(page.rect, stream=encoded.tobytes())
+
+    decoded = decode_document(document.tobytes(), "application/pdf")
+    result = grade_image(decoded, 4, 4, [1, 2, 3, 4])
+    assert result.score == 100
+
+
+def test_finds_answer_area_when_outer_border_has_small_gaps() -> None:
+    answers = [1, 3, 4, 2]
+    image = make_sheet(answers, 4)
+    cv2.rectangle(image, (370, 55), (430, 70), (255, 255, 255), cv2.FILLED)
+    cv2.rectangle(image, (370, 730), (430, 745), (255, 255, 255), cv2.FILLED)
+
+    result = grade_image(image, 4, 4, answers)
+    assert result.score == 100

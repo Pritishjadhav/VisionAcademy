@@ -29,14 +29,31 @@ export default function GradeOMRPage() {
   const [genNumChoices, setGenNumChoices] = useState<number>(4);
   const [genTitle, setGenTitle] = useState<string>("Vision Academy - OMR Sheet");
 
+  const selectFile = (selectedFile: File) => {
+    const allowedTypes = [
+      "application/pdf",
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/tiff",
+      "image/bmp",
+    ];
+    const allowedExtensions = /\.(pdf|jpe?g|png|webp|tiff?|bmp)$/i;
+    if (!allowedTypes.includes(selectedFile.type) && !allowedExtensions.test(selectedFile.name)) {
+      setError("Upload a PDF, JPEG, PNG, WebP, TIFF, or BMP file.");
+      return;
+    }
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    const isPdf = selectedFile.type === "application/pdf" || /\.pdf$/i.test(selectedFile.name);
+    setFile(selectedFile);
+    setPreviewUrl(isPdf ? null : URL.createObjectURL(selectedFile));
+    setResult(null);
+    setError(null);
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      setFile(selectedFile);
-      setPreviewUrl(URL.createObjectURL(selectedFile));
-      setResult(null);
-      setError(null);
-    }
+    if (selectedFile) selectFile(selectedFile);
   };
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
@@ -46,14 +63,7 @@ export default function GradeOMRPage() {
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     const droppedFile = e.dataTransfer.files?.[0];
-    if (droppedFile && ["image/jpeg", "image/png", "image/webp"].includes(droppedFile.type)) {
-      setFile(droppedFile);
-      setPreviewUrl(URL.createObjectURL(droppedFile));
-      setResult(null);
-      setError(null);
-    } else {
-      setError("Upload a JPEG, PNG, or WebP image.");
-    }
+    if (droppedFile) selectFile(droppedFile);
   };
 
   const handleGeneratePdf = async () => {
@@ -102,7 +112,6 @@ export default function GradeOMRPage() {
         image: data.graded_image_base64,
       });
     } catch (err: unknown) {
-      console.error(err);
       setError(err instanceof Error ? err.message : "An unexpected error occurred.");
     } finally {
       setLoading(false);
@@ -345,10 +354,10 @@ export default function GradeOMRPage() {
                       >
                         <FileImage className="w-16 h-16 mx-auto text-gray-400 group-hover:text-blue-500 mb-4 transition-colors" />
                         <p className="text-gray-600 font-medium">Click or drag the student&apos;s filled sheet</p>
-                        <p className="text-sm text-gray-400 mt-2">Supports JPEG, PNG, and WebP images</p>
+                        <p className="text-sm text-gray-400 mt-2">Supports PDF, JPEG, PNG, WebP, TIFF, and BMP</p>
                         <input
                           type="file"
-                          accept="image/jpeg,image/png,image/webp"
+                          accept=".pdf,.jpg,.jpeg,.png,.webp,.tif,.tiff,.bmp,application/pdf,image/jpeg,image/png,image/webp,image/tiff,image/bmp"
                           ref={fileInputRef}
                           onChange={handleFileChange}
                           className="hidden"
@@ -357,12 +366,18 @@ export default function GradeOMRPage() {
                     ) : (
                       <div className="flex flex-col h-full">
                         <div className="relative rounded-xl overflow-hidden shadow-md bg-gray-100 flex items-center justify-center p-2 mb-6 flex-1">
-                          {previewUrl && (
+                          {previewUrl ? (
                             <img
                               src={previewUrl}
                               alt="Preview"
                               className="object-contain h-full w-full rounded"
                             />
+                          ) : (
+                            <div className="text-center text-gray-600">
+                              <FileText className="w-16 h-16 mx-auto mb-3 text-red-500" />
+                              <p className="font-medium">{file.name}</p>
+                              <p className="text-sm text-gray-400 mt-1">The first PDF page will be graded.</p>
+                            </div>
                           )}
                         </div>
                         

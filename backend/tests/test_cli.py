@@ -51,6 +51,29 @@ def test_grades_image_without_http_service() -> None:
     assert response["data"]["score"] == 100
 
 
+def test_grades_pdf_without_http_service() -> None:
+    import fitz
+
+    success, encoded = cv2.imencode(".png", make_sheet([1, 3, 4, 2], 4))
+    assert success
+    document = fitz.open()
+    page = document.new_page(width=800, height=800)
+    page.insert_image(page.rect, stream=encoded.tobytes())
+    code, response = run_cli(
+        {
+            "operation": "grade",
+            "questions": 4,
+            "choices": 4,
+            "answer_key": "1,3,4,2",
+            "image_base64": base64.b64encode(document.tobytes()).decode("ascii"),
+            "media_type": "application/pdf",
+        }
+    )
+    assert code == 0
+    assert response["success"] is True
+    assert response["data"]["score"] == 100
+
+
 def test_returns_structured_validation_error() -> None:
     code, response = run_cli(
         {"operation": "generate", "questions": 0, "choices": 4, "title": "Invalid"}
