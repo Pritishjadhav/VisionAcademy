@@ -4,7 +4,7 @@ import { useState, useEffect, use } from "react";
 import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import { Button } from "@/components/ui/Button";
-import { ArrowLeft, User, Phone, Mail, Calendar, BookOpen, FileText, CheckCircle, XCircle, Loader2, BarChart, DollarSign, Plus, Edit3 } from "lucide-react";
+import { ArrowLeft, User, Phone, Mail, Calendar, BookOpen, FileText, CheckCircle, XCircle, Loader2, BarChart, DollarSign, Plus, Edit3, Download } from "lucide-react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
@@ -21,6 +21,7 @@ interface Student {
   dateOfBirth?: string;
   batch?: string;
   totalFees?: number;
+  photoURL?: string;
 }
 
 interface TestScore {
@@ -52,7 +53,7 @@ export default function StudentProfilePage({ params }: { params: Promise<{ batch
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [feePayments, setFeePayments] = useState<FeePayment[]>([]);
   const [activeTab, setActiveTab] = useState<"all" | "theory" | "online">("all");
-  
+
   const [isEditFeesOpen, setIsEditFeesOpen] = useState(false);
   const [isAddPaymentOpen, setIsAddPaymentOpen] = useState(false);
 
@@ -99,7 +100,7 @@ export default function StudentProfilePage({ params }: { params: Promise<{ batch
         // 4. Fetch Online Results
         const resultsQ = query(collection(db, "results"), where("studentId", "==", studentId));
         const resultsSnap = await getDocs(resultsQ);
-        
+
         // For online results, we need the test names. We can fetch all tests in batch to map them.
         const testsQ = query(collection(db, "tests"), where("batch", "==", batchName));
         const testsSnap = await getDocs(testsQ);
@@ -181,8 +182,8 @@ export default function StudentProfilePage({ params }: { params: Promise<{ batch
   const attendancePercentage = totalAttendance > 0 ? Math.round((presentDays / totalAttendance) * 100) : 0;
 
   const totalTests = scores.length;
-  const avgPercentage = totalTests > 0 
-    ? Math.round(scores.reduce((acc, s) => acc + s.percentage, 0) / totalTests) 
+  const avgPercentage = totalTests > 0
+    ? Math.round(scores.reduce((acc, s) => acc + s.percentage, 0) / totalTests)
     : 0;
 
   // Filter scores based on active tab
@@ -198,16 +199,18 @@ export default function StudentProfilePage({ params }: { params: Promise<{ batch
   const remainingFees = Math.max(0, totalFees - totalFeesPaid);
 
   // Prepare chart data (format date for display)
-  const chartData = displayScores.map(s => ({
-    name: s.testName,
-    date: new Date(s.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }),
-    percentage: s.percentage,
-    type: s.type
-  }));
+  const chartData = [...displayScores]
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .map(s => ({
+      name: s.testName,
+      date: new Date(s.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }),
+      percentage: s.percentage,
+      type: s.type
+    }));
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto py-8 px-4">
-      <button 
+      <button
         onClick={() => router.push(`/admin/dashboard/batch/${encodeURIComponent(batchName)}`)}
         className="flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors"
       >
@@ -216,29 +219,51 @@ export default function StudentProfilePage({ params }: { params: Promise<{ batch
 
       {/* Profile Header */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8 flex flex-col md:flex-row gap-8 items-start md:items-center">
-        <div className="w-24 h-24 bg-brand-orange/10 text-brand-orange rounded-full flex items-center justify-center text-4xl font-bold shrink-0">
-          {student.name.charAt(0).toUpperCase()}
+        <div className="flex flex-col items-center gap-3 shrink-0">
+          <div className="w-24 h-24 bg-brand-orange/10 text-brand-orange rounded-full flex items-center justify-center text-4xl font-bold overflow-hidden shadow-sm">
+            {student.photoURL ? (
+              <img src={student.photoURL} alt={student.name} className="w-full h-full object-cover" />
+            ) : (
+              student.name.charAt(0).toUpperCase()
+            )}
+          </div>
+          {student.photoURL && (
+            <button
+              onClick={() => {
+                const link = document.createElement("a");
+                link.href = student.photoURL || "";
+                link.download = `${student.name.replace(/\s+/g, "_")}_Profile_Photo.jpg`;
+                link.target = "_blank";
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }}
+              className="text-xs font-semibold text-brand-blue hover:text-blue-700 bg-brand-blue/5 hover:bg-brand-blue/10 px-3 py-1.5 rounded-full transition-colors flex items-center gap-1.5"
+            >
+              <Download size={14} /> Download Photo
+            </button>
+          )}
         </div>
         <div className="flex-1">
           <h1 className="text-3xl font-bold text-slate-900 mb-2">{student.name}</h1>
           <div className="flex flex-wrap gap-4 text-slate-600">
             <span className="flex items-center gap-2">
-              <Phone size={16} className="text-slate-400"/> 
+              <Phone size={16} className="text-slate-400" />
               <a href={`tel:${student.mobile}`} className="hover:text-brand-orange transition-colors">{student.mobile}</a>
             </span>
             {student.parentMobile && (
               <span className="flex items-center gap-2">
-                <User size={16} className="text-slate-400"/> Parent: 
+                <User size={16} className="text-slate-400" /> Parent:
                 <a href={`tel:${student.parentMobile}`} className="hover:text-brand-orange transition-colors">{student.parentMobile}</a>
               </span>
             )}
             {student.email && (
               <span className="flex items-center gap-2">
-                <Mail size={16} className="text-slate-400"/> 
+                <Mail size={16} className="text-slate-400" />
                 <a href={`mailto:${student.email}`} className="hover:text-brand-orange transition-colors">{student.email}</a>
               </span>
             )}
-            <span className="flex items-center gap-2"><BookOpen size={16} className="text-slate-400"/> {student.batch || batchName}</span>
+            <span className="flex items-center gap-2"><BookOpen size={16} className="text-slate-400" /> {student.batch || batchName}</span>
           </div>
         </div>
 
@@ -260,25 +285,25 @@ export default function StudentProfilePage({ params }: { params: Promise<{ batch
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
+
         {/* Left Column: Graphs & Tests */}
         <div className="lg:col-span-2 space-y-8">
-          
+
           {/* Filters */}
           <div className="flex bg-white shadow-sm border border-slate-100 p-1.5 rounded-xl w-fit">
-            <button 
+            <button
               onClick={() => setActiveTab("all")}
               className={`px-6 py-2 text-sm font-medium rounded-lg transition-colors ${activeTab === "all" ? "bg-slate-900 text-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
             >
               All Tests
             </button>
-            <button 
+            <button
               onClick={() => setActiveTab("theory")}
               className={`px-6 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${activeTab === "theory" ? "bg-brand-orange text-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
             >
               <BookOpen size={16} /> Theory
             </button>
-            <button 
+            <button
               onClick={() => setActiveTab("online")}
               className={`px-6 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${activeTab === "online" ? "bg-brand-blue text-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
             >
@@ -297,21 +322,21 @@ export default function StudentProfilePage({ params }: { params: Promise<{ batch
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="date" tick={{fontSize: 12, fill: '#64748b'}} tickLine={false} axisLine={false} />
-                    <YAxis tick={{fontSize: 12, fill: '#64748b'}} tickLine={false} axisLine={false} domain={[0, 100]} />
-                    <Tooltip 
+                    <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#64748b' }} tickLine={false} axisLine={false} />
+                    <YAxis tick={{ fontSize: 12, fill: '#64748b' }} tickLine={false} axisLine={false} domain={[0, 100]} />
+                    <Tooltip
                       contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                       labelStyle={{ fontWeight: 'bold', color: '#0f172a', marginBottom: '4px' }}
                     />
                     <Legend iconType="circle" />
-                    <Line 
-                      type="monotone" 
-                      dataKey="percentage" 
-                      name="Score %" 
-                      stroke="#4f46e5" 
-                      strokeWidth={3} 
-                      dot={{ r: 4, strokeWidth: 2 }} 
-                      activeDot={{ r: 6, strokeWidth: 0 }}
+                    <Line
+                      type="monotone"
+                      dataKey="percentage"
+                      name="Score %"
+                      stroke="#4f46e5"
+                      strokeWidth={2}
+                      dot={{ r: 4, fill: "#4f46e5", strokeWidth: 0 }}
+                      activeDot={{ r: 6, fill: "#4f46e5", strokeWidth: 0 }}
                     />
                   </LineChart>
                 </ResponsiveContainer>
@@ -329,16 +354,15 @@ export default function StudentProfilePage({ params }: { params: Promise<{ batch
               <FileText className="text-brand-orange" />
               Test History
             </h2>
-            
+
             {displayScores.length > 0 ? (
               <div className="space-y-4">
                 {[...displayScores].reverse().map(score => (
                   <div key={score.id} className="flex flex-col sm:flex-row justify-between sm:items-center p-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-brand-blue/30 transition-colors">
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
-                          score.type === 'theory' ? 'bg-orange-100 text-brand-orange' : 'bg-blue-100 text-brand-blue'
-                        }`}>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${score.type === 'theory' ? 'bg-orange-100 text-brand-orange' : 'bg-blue-100 text-brand-blue'
+                          }`}>
                           {score.type}
                         </span>
                         <span className="text-sm text-slate-500 font-medium">
@@ -347,7 +371,7 @@ export default function StudentProfilePage({ params }: { params: Promise<{ batch
                       </div>
                       <h3 className="font-bold text-slate-900">{score.testName}</h3>
                     </div>
-                    
+
                     <div className="flex items-center gap-6 mt-4 sm:mt-0 bg-white px-4 py-2 rounded-lg border border-slate-200">
                       <div className="text-center">
                         <p className="text-xs text-slate-500 uppercase font-bold">Marks</p>
@@ -427,7 +451,7 @@ export default function StudentProfilePage({ params }: { params: Promise<{ batch
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 relative group">
                   <p className="text-xs text-slate-500 font-medium mb-1">Total Fees</p>
                   <p className="text-lg font-bold text-slate-900">₹{totalFees.toLocaleString()}</p>
-                  <button 
+                  <button
                     onClick={() => setIsEditFeesOpen(true)}
                     className="absolute top-3 right-3 p-1.5 text-slate-400 hover:text-brand-blue bg-white rounded-md shadow-sm opacity-0 group-hover:opacity-100 transition-all border border-slate-100"
                     title="Edit Total Fees"

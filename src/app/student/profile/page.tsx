@@ -3,12 +3,15 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { db } from "@/lib/firebase/config";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { updateProfile } from "firebase/auth";
+import { db } from "@/lib/firebase/config";
+import { uploadImageToCloudinary } from "@/actions/cloudinary";
 import { linkParentAccount } from "@/actions/users";
 import { getRequiredIdToken } from "@/lib/auth-token";
 import { Button } from "@/components/ui/Button";
-import { Loader2, User, Mail, Phone, Calendar, Users, GraduationCap, Edit2, Save } from "lucide-react";
+import { ImageCropperModal } from "@/components/ui/ImageCropperModal";
+import { Loader2, User, Mail, Phone, Calendar, Users, GraduationCap, Edit2, Save, Camera, Upload, Trash2, Eye } from "lucide-react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 
@@ -19,6 +22,11 @@ export default function StudentProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [fetching, setFetching] = useState(true);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoURL, setPhotoURL] = useState<string | null>(null);
+  
+  // Cropper State
+  const [selectedImageSrc, setSelectedImageSrc] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -41,6 +49,7 @@ export default function StudentProfilePage() {
         const authEmail = user.email || "";
         const isSynthetic = (em: string) => em.includes("@visionacademy.com");
         const displayEmail = (!isSynthetic(storedEmail) ? storedEmail : "") || (!isSynthetic(authEmail) ? authEmail : "");
+        setPhotoURL(data.photoURL || user.photoURL || null);
 
         setFormData({
           name: data.name || "",
@@ -127,6 +136,86 @@ export default function StudentProfilePage() {
     }
   };
 
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || !e.target.files[0] || !user) return;
+    const file = e.target.files[0];
+    
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file.");
+      return;
+    }
+    
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be smaller than 5MB.");
+      return;
+    }
+
+    // Read file to data URL and open cropper
+    const reader = new FileReader();
+    reader.addEventListener("load", () => {
+      setSelectedImageSrc(reader.result?.toString() || null);
+    });
+    reader.readAsDataURL(file);
+
+    // Reset input
+    if (e.target) e.target.value = '';
+  };
+
+  const handleCropComplete = async (croppedFile: File) => {
+    if (!user) return;
+    
+    try {
+      setUploadingPhoto(true);
+      
+      const formData = new FormData();
+      formData.append("file", croppedFile);
+      formData.append("folder", `profile-photos/${user.uid}`);
+      
+      // Upload to Cloudinary using Server Action
+      const url = await uploadImageToCloudinary(formData);
+      
+      // Update Auth Profile
+      await updateProfile(user, { photoURL: url });
+      
+      // Update Firestore Doc
+      const docRef = doc(db, "students", user.uid);
+      await updateDoc(docRef, { photoURL: url });
+      
+      setPhotoURL(url);
+      toast.success("Profile photo updated successfully!");
+      setSelectedImageSrc(null); // Close modal
+    } catch (error) {
+      console.error("Error uploading photo:", error);
+      toast.error("Failed to upload photo.");
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handleRemovePhoto = async () => {
+    if (!user) return;
+    if (!confirm("Are you sure you want to remove your profile photo?")) return;
+    
+    try {
+      setUploadingPhoto(true);
+      // Update Auth Profile
+      await updateProfile(user, { photoURL: null });
+      // Update Firestore Doc
+      const docRef = doc(db, "students", user.uid);
+      await updateDoc(docRef, { photoURL: null });
+      
+      setPhotoURL(null);
+      toast.success("Profile photo removed.");
+    } catch (error) {
+      console.error("Error removing photo:", error);
+      toast.error("Failed to remove photo.");
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
   if (loading || fetching) {
     return (
       <div className="min-h-[70vh] flex items-center justify-center">
@@ -153,6 +242,67 @@ export default function StudentProfilePage() {
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8">
           <form onSubmit={handleSave} className="space-y-6">
+            
+            {/* Profile Photo Section */}
+            <div className="flex flex-col items-center justify-center py-4 border-b border-slate-100 mb-6">
+              <div className="relative group mb-4">
+                <div className="relative rounded-full p-1 sm:p-[6px] bg-gradient-to-br from-orange-500 via-white to-green-600 shadow-xl">
+                  <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full overflow-hidden border-[3px] sm:border-4 border-white bg-slate-50 flex items-center justify-center">
+                    {uploadingPhoto ? (
+                      <Loader2 className="animate-spin text-brand-blue" size={32} />
+                    ) : photoURL ? (
+                      <img src={photoURL} alt="Profile" className="w-full h-full object-cover" />
+                    ) : (
+                      <User size={48} className="text-slate-300" />
+                    )}
+                  </div>
+                </div>
+                
+                {isEditing && (
+                  <label className="absolute bottom-0 right-0 p-2 sm:p-2.5 bg-brand-blue text-white rounded-full shadow-md cursor-pointer hover:bg-blue-700 hover:scale-105 transition-all">
+                    <Camera size={16} className="sm:w-5 sm:h-5" />
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={handlePhotoUpload} 
+                      disabled={uploadingPhoto}
+                    />
+                  </label>
+                )}
+              </div>
+              <div className="text-center flex flex-col items-center gap-2">
+                <div>
+                  <h3 className="font-semibold text-slate-800">Profile Photo</h3>
+                  {isEditing && (
+                    <p className="text-xs text-slate-500 mt-1">Click the camera icon to upload or change your photo.</p>
+                  )}
+                </div>
+                {photoURL && (
+                  <div className="flex flex-wrap justify-center items-center gap-3">
+                    <a 
+                      href={photoURL} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-xs font-medium text-brand-blue hover:text-blue-700 hover:bg-brand-blue/5 px-3 py-1.5 rounded-full transition-colors flex items-center gap-1.5"
+                    >
+                      <Eye size={14} /> View Photo
+                    </a>
+                    {isEditing && (
+                      <button 
+                        type="button" 
+                        onClick={handleRemovePhoto} 
+                        disabled={uploadingPhoto}
+                        className="text-xs font-medium text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1.5 rounded-full transition-colors flex items-center gap-1.5"
+                      >
+                        <Trash2 size={14} /> Remove Photo
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               
               {/* Full Name */}
@@ -322,6 +472,15 @@ export default function StudentProfilePage() {
           </form>
         </div>
       </div>
+
+      {selectedImageSrc && (
+        <ImageCropperModal
+          imageSrc={selectedImageSrc}
+          onCropComplete={handleCropComplete}
+          onClose={() => setSelectedImageSrc(null)}
+          isUploading={uploadingPhoto}
+        />
+      )}
     </div>
   );
 }

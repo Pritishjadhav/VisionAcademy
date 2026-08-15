@@ -5,10 +5,11 @@ import { useParams, useRouter } from "next/navigation";
 import { collection, doc, getDoc, query, where, orderBy, onSnapshot, addDoc, deleteDoc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import { Button } from "@/components/ui/Button";
-import { ArrowLeft, Loader2, Plus, Save, Trash2, Edit } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, Save, Trash2, Edit, X, Image as ImageIcon } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { Test, Question, QuestionType, Subject, DifficultyLevel } from "@/lib/types/test";
+import { uploadImageToCloudinary } from "@/actions/cloudinary";
 
 export default function ManageQuestionsPage() {
   const { testId } = useParams() as { testId: string };
@@ -34,6 +35,10 @@ export default function ManageQuestionsPage() {
   const [marks, setMarks] = useState(4);
   const [negMarks, setNegMarks] = useState(1);
   const [explanation, setExplanation] = useState("");
+  const [qImage, setQImage] = useState<File | null>(null);
+  const [qImageUrl, setQImageUrl] = useState<string>("");
+  const [qOptionImages, setQOptionImages] = useState<Record<string, File | null>>({ A: null, B: null, C: null, D: null });
+  const [qOptionImageUrls, setQOptionImageUrls] = useState<Record<string, string>>({ A: "", B: "", C: "", D: "" });
 
   useEffect(() => {
     async function fetchTest() {
@@ -52,6 +57,8 @@ export default function ManageQuestionsPage() {
     }
     fetchTest();
   }, [testId, router]);
+
+  const hasStarted = test ? (new Date() >= new Date(`${test.testDate}T${test.startTime}`)) : false;
 
   useEffect(() => {
     if (!testId) return;
@@ -85,6 +92,10 @@ export default function ManageQuestionsPage() {
       setNegMarks(test.negativeMarkingEnabled ? test.marksPerWrongAnswer : 0);
     }
     setExplanation("");
+    setQImage(null);
+    setQImageUrl("");
+    setQOptionImages({ A: null, B: null, C: null, D: null });
+    setQOptionImageUrls({ A: "", B: "", C: "", D: "" });
   };
 
   const openAddForm = () => {
@@ -105,6 +116,14 @@ export default function ManageQuestionsPage() {
     setMarks(q.marks);
     setNegMarks(q.negativeMarks);
     setExplanation(q.explanation || "");
+    setQImageUrl(q.imageUrl || "");
+    setQImage(null);
+    if (q.optionImages) {
+      setQOptionImageUrls({ A: q.optionImages.A || "", B: q.optionImages.B || "", C: q.optionImages.C || "", D: q.optionImages.D || "" });
+    } else {
+      setQOptionImageUrls({ A: "", B: "", C: "", D: "" });
+    }
+    setQOptionImages({ A: null, B: null, C: null, D: null });
     setIsFormOpen(true);
   };
 
@@ -123,6 +142,24 @@ export default function ManageQuestionsPage() {
     setFormLoading(true);
     
     try {
+      let uploadedImageUrl = qImageUrl;
+      if (qImage) {
+        const formData = new FormData();
+        formData.append("file", qImage);
+        formData.append("folder", "questions");
+        uploadedImageUrl = await uploadImageToCloudinary(formData);
+      }
+
+      const uploadedOptionImageUrls = { ...qOptionImageUrls };
+      for (const opt of ['A', 'B', 'C', 'D']) {
+        if (qOptionImages[opt]) {
+          const optFormData = new FormData();
+          optFormData.append("file", qOptionImages[opt]!);
+          optFormData.append("folder", "options");
+          uploadedOptionImageUrls[opt] = await uploadImageToCloudinary(optFormData);
+        }
+      }
+
       const questionData: any = {
         testId,
         questionText: qText,
@@ -132,11 +169,13 @@ export default function ManageQuestionsPage() {
         negativeMarks: negMarks,
         explanation,
         difficultyLevel: qDifficulty,
+        imageUrl: uploadedImageUrl,
         updatedAt: serverTimestamp()
       };
       
       if (qType === 'MCQ' || qType === 'MSQ') {
         questionData.options = qOptions;
+        questionData.optionImages = uploadedOptionImageUrls;
       }
       
       if (qType === 'MCQ') questionData.correctOption = correctMCQ;
@@ -207,10 +246,12 @@ export default function ManageQuestionsPage() {
           </div>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" onClick={openAddForm}>
-            <Plus size={18} className="mr-1" /> Add Question
-          </Button>
-          {test.status === "Draft" && (
+          {!hasStarted && (
+            <Button variant="outline" onClick={openAddForm}>
+              <Plus size={18} className="mr-1" /> Add Question
+            </Button>
+          )}
+          {test.status === "Draft" && !hasStarted && (
             <Button variant="gradient" onClick={handlePublishTest}>
               Publish Test
             </Button>
@@ -239,6 +280,12 @@ export default function ManageQuestionsPage() {
                   </div>
                   <p className="text-slate-800 font-medium whitespace-pre-wrap">{q.questionText}</p>
                   
+                  {q.imageUrl && (
+                    <div className="mt-2">
+                      <img src={q.imageUrl} alt="Question Image" className="max-h-48 rounded-lg object-contain border border-slate-200" />
+                    </div>
+                  )}
+
                   {q.questionType !== 'Integer' && q.options && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 text-sm text-slate-600">
                       {['A', 'B', 'C', 'D'].map(opt => (
@@ -248,6 +295,11 @@ export default function ManageQuestionsPage() {
                           : 'bg-slate-50 border-slate-100'
                         }`}>
                           <span className="font-bold mr-2">{opt}.</span> {q.options?.[opt as keyof typeof q.options]}
+                          {q.optionImages && q.optionImages[opt as keyof typeof q.optionImages] && (
+                            <div className="mt-2">
+                              <img src={q.optionImages[opt as keyof typeof q.optionImages]} alt={`Option ${opt}`} className="max-h-24 rounded-lg object-contain border border-slate-200" />
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -258,14 +310,16 @@ export default function ManageQuestionsPage() {
                     </div>
                   )}
                 </div>
-                <div className="flex md:flex-col gap-2 shrink-0">
-                  <button onClick={() => openEditForm(q)} className="p-2 text-slate-500 hover:text-brand-blue bg-slate-50 hover:bg-brand-blue/5 rounded-lg transition-colors">
-                    <Edit size={18} />
-                  </button>
-                  <button onClick={() => handleDelete(q.id)} className="p-2 text-slate-500 hover:text-red-600 bg-slate-50 hover:bg-red-50 rounded-lg transition-colors">
-                    <Trash2 size={18} />
-                  </button>
-                </div>
+                {!hasStarted && (
+                  <div className="flex md:flex-col gap-2 shrink-0">
+                    <button onClick={() => openEditForm(q)} className="p-2 text-slate-500 hover:text-brand-blue bg-slate-50 hover:bg-brand-blue/5 rounded-lg transition-colors">
+                      <Edit size={18} />
+                    </button>
+                    <button onClick={() => handleDelete(q.id)} className="p-2 text-slate-500 hover:text-red-600 bg-slate-50 hover:bg-red-50 rounded-lg transition-colors">
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                )}
               </div>
             ))
           )}
@@ -305,13 +359,52 @@ export default function ManageQuestionsPage() {
             </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">Question Text *</label>
-            <textarea 
-              required value={qText} onChange={e => setQText(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-blue/20 min-h-[120px]"
-              placeholder="Enter the question here..."
-            />
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Question Text *</label>
+              <textarea 
+                required value={qText} onChange={e => setQText(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-blue/20 min-h-[120px]"
+                placeholder="Enter the question here..."
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Question Image (Optional)</label>
+              {(qImage || qImageUrl) ? (
+                <div className="relative inline-block border border-slate-200 rounded-xl p-2 bg-slate-50">
+                  <img 
+                    src={qImage ? URL.createObjectURL(qImage) : qImageUrl} 
+                    alt="Preview" 
+                    className="max-h-40 rounded-lg object-contain" 
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => { setQImage(null); setQImageUrl(""); }}
+                    className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition-colors"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <label className="cursor-pointer flex items-center gap-2 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors text-sm font-medium text-slate-700">
+                    <ImageIcon size={18} className="text-brand-blue" />
+                    Upload Image
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          setQImage(e.target.files[0]);
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+              )}
+            </div>
           </div>
 
           {qType !== 'Integer' && (
@@ -319,15 +412,54 @@ export default function ManageQuestionsPage() {
               <label className="text-sm font-medium text-slate-700">Options *</label>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {['A', 'B', 'C', 'D'].map((opt) => (
-                  <div key={opt} className="flex gap-2 items-center">
-                    <span className="font-bold text-slate-500 w-6">{opt}.</span>
-                    <input 
-                      required type="text"
-                      value={qOptions[opt as keyof typeof qOptions]}
-                      onChange={e => setQOptions(prev => ({ ...prev, [opt]: e.target.value }))}
-                      className="flex-1 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
-                      placeholder={`Option ${opt}`}
-                    />
+                  <div key={opt} className="flex flex-col gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                    <div className="flex gap-2 items-center">
+                      <span className="font-bold text-slate-500 w-6">{opt}.</span>
+                      <input 
+                        required={!qOptionImages[opt] && !qOptionImageUrls[opt]} type="text"
+                        value={qOptions[opt as keyof typeof qOptions]}
+                        onChange={e => setQOptions(prev => ({ ...prev, [opt]: e.target.value }))}
+                        className="flex-1 px-4 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
+                        placeholder={`Option ${opt} text`}
+                      />
+                    </div>
+                    <div className="pl-8">
+                      {(qOptionImages[opt] || qOptionImageUrls[opt]) ? (
+                        <div className="relative inline-block border border-slate-200 rounded-lg p-1 bg-white">
+                          <img 
+                            src={qOptionImages[opt] ? URL.createObjectURL(qOptionImages[opt]!) : qOptionImageUrls[opt]} 
+                            alt={`Preview ${opt}`} 
+                            className="max-h-20 rounded-lg object-contain" 
+                          />
+                          <button 
+                            type="button" 
+                            onClick={() => { 
+                              setQOptionImages(prev => ({ ...prev, [opt]: null })); 
+                              setQOptionImageUrls(prev => ({ ...prev, [opt]: "" })); 
+                            }}
+                            className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition-colors shadow-sm"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors text-xs font-medium text-slate-600 shadow-sm">
+                          <ImageIcon size={14} className="text-brand-blue" />
+                          Add Option Image
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            className="hidden"
+                            onChange={(e) => {
+                              if (e.target.files && e.target.files[0]) {
+                                const file = e.target.files[0];
+                                setQOptionImages(prev => ({ ...prev, [opt]: file }));
+                              }
+                            }}
+                          />
+                        </label>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

@@ -90,8 +90,8 @@ export async function createOmrTest(
   const choices = input.examType === "CUSTOM" ? Number(input.choices) : 4;
   if (!input.testName.trim() || !input.testDate) throw new Error("Test name and date are required.");
   if (!BATCHES.has(input.batch)) throw new Error("Select a valid batch.");
-  if (input.examType === "CUSTOM" && (!Number.isInteger(omrQuestions) || omrQuestions < 1 || omrQuestions > 60)) {
-    throw new Error("Custom tests support 1 to 60 questions.");
+  if (input.examType === "CUSTOM" && (!Number.isInteger(omrQuestions) || omrQuestions < 1 || omrQuestions > 180)) {
+    throw new Error("Custom tests support 1 to 180 questions.");
   }
   if (!Number.isInteger(choices) || choices < 2 || choices > 5) {
     throw new Error("Select between 2 and 5 choices.");
@@ -202,9 +202,35 @@ export async function saveOmrResult(
     numericalCorrect,
     numericalWrong,
     numericalUnattempted,
+    answerKey: test.answerKey,
     createdAt: now,
     updatedAt: now,
   };
   await adminDb.collection("omrResults").doc(`${input.testId}_${input.studentId}`).set(result);
   return { success: true, result };
+}
+
+export async function deleteOmrTest(idToken: string, testId: string) {
+  const actor = await requireAdmin(idToken);
+  enforceRateLimit(`action:delete-omr-test:${actor.uid}`, 10);
+  
+  if (!testId) throw new Error("Test ID is required.");
+
+  // Delete all results associated with this test
+  const resultsSnapshot = await adminDb.collection("omrResults").where("testId", "==", testId).get();
+  
+  const batch = adminDb.batch();
+  
+  // Delete results
+  resultsSnapshot.docs.forEach((doc) => {
+    batch.delete(doc.ref);
+  });
+  
+  // Delete the test itself
+  const testRef = adminDb.collection("omrTests").doc(testId);
+  batch.delete(testRef);
+  
+  await batch.commit();
+  
+  return { success: true };
 }

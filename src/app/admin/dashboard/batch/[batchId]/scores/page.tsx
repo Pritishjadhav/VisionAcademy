@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect, use } from "react";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, deleteDoc, writeBatch } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
-import { ArrowLeft, Loader2, FileText, BookOpen, BarChart, Calendar, X } from "lucide-react";
+import { ArrowLeft, Loader2, FileText, BookOpen, BarChart, Calendar, X, ListChecks, ChevronRight, Users, Award, Download, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import { downloadOmrResultSheet } from "@/lib/omr/client";
 
 interface Student {
   id: string;
@@ -27,7 +28,23 @@ interface OnlineTest {
   totalMarks: number;
 }
 
-type TabType = "all" | "theory" | "online";
+interface OmrTest {
+  id: string;
+  testName: string;
+  testDate: string;
+  maxMarks: number;
+}
+
+type TabType = "all" | "theory" | "online" | "omr";
+
+type CombinedTest = {
+  id: string;
+  testName: string;
+  date: string;
+  totalMarks: number;
+  type: "theory" | "online" | "omr";
+  sortDate: number;
+};
 
 export default function BatchScoresPage({ params }: { params: Promise<{ batchId: string }> }) {
   const resolvedParams = use(params);
@@ -37,13 +54,17 @@ export default function BatchScoresPage({ params }: { params: Promise<{ batchId:
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>("all");
   const [selectedDate, setSelectedDate] = useState<string>("");
+  const [selectedTest, setSelectedTest] = useState<CombinedTest | null>(null);
 
   const [students, setStudents] = useState<Student[]>([]);
   const [theoryTests, setTheoryTests] = useState<TheoryTest[]>([]);
   const [onlineTests, setOnlineTests] = useState<OnlineTest[]>([]);
+  const [omrTests, setOmrTests] = useState<OmrTest[]>([]);
   
   const [theoryMarksMap, setTheoryMarksMap] = useState<Record<string, Record<string, number>>>({}); 
   const [onlineResultsMap, setOnlineResultsMap] = useState<Record<string, Record<string, number>>>({}); 
+  const [omrResultsMap, setOmrResultsMap] = useState<Record<string, Record<string, number>>>({}); 
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     async function fetchAllData() {
@@ -109,6 +130,32 @@ export default function BatchScoresPage({ params }: { params: Promise<{ batchId:
         });
         setOnlineResultsMap(oMap);
 
+        // 6. Fetch OMR Tests
+        const omrTestsQ = query(collection(db, "omrTests"), where("batch", "==", batchName));
+        const omrTestsSnap = await getDocs(omrTestsQ);
+        const fetchedOmrTests = omrTestsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as OmrTest[];
+        fetchedOmrTests.sort((a, b) => new Date(b.testDate).getTime() - new Date(a.testDate).getTime());
+        setOmrTests(fetchedOmrTests);
+
+        // 7. Fetch OMR Results
+        const omrMap: Record<string, Record<string, number>> = {};
+        const omrResultPromises = [];
+        for (let i = 0; i < studentIds.length; i += chunkSize) {
+          const chunk = studentIds.slice(i, i + chunkSize);
+          const q = query(collection(db, "omrResults"), where("studentId", "in", chunk));
+          omrResultPromises.push(getDocs(q));
+        }
+        
+        const omrResultsSnaps = await Promise.all(omrResultPromises);
+        omrResultsSnaps.forEach(snap => {
+          snap.forEach(doc => {
+            const data = doc.data();
+            if (!omrMap[data.studentId]) omrMap[data.studentId] = {};
+            omrMap[data.studentId][data.testId] = data.marksObtained;
+          });
+        });
+        setOmrResultsMap(omrMap);
+
       } catch (error) {
         console.error("Error fetching scores data:", error);
         toast.error("Failed to load batch scores");
@@ -120,19 +167,87 @@ export default function BatchScoresPage({ params }: { params: Promise<{ batchId:
     fetchAllData();
   }, [batchName]);
 
-  const combinedTests = [
+  const combinedTests: CombinedTest[] = [
     ...theoryTests.map(t => ({ ...t, type: "theory" as const, sortDate: new Date(t.date).getTime() })),
-    ...onlineTests.map(t => ({ ...t, date: t.testDate, type: "online" as const, sortDate: new Date(t.testDate).getTime() }))
+    ...onlineTests.map(t => ({ ...t, date: t.testDate, type: "online" as const, sortDate: new Date(t.testDate).getTime() })),
+    ...omrTests.map(t => ({ ...t, date: t.testDate, totalMarks: t.maxMarks, type: "omr" as const, sortDate: new Date(t.testDate).getTime() }))
   ].sort((a, b) => b.sortDate - a.sortDate);
 
-  let displayTests: typeof combinedTests = [];
-  if (activeTab === "all") displayTests = combinedTests;
-  else if (activeTab === "theory") displayTests = combinedTests.filter(t => t.type === "theory");
+  let displayTests = combinedTests;
+  if (activeTab === "theory") displayTests = combinedTests.filter(t => t.type === "theory");
   else if (activeTab === "online") displayTests = combinedTests.filter(t => t.type === "online");
+  else if (activeTab === "omr") displayTests = combinedTests.filter(t => t.type === "omr");
 
   if (selectedDate) {
     displayTests = displayTests.filter(t => t.date === selectedDate);
   }
+
+  // Deselect test if tab or date changes and selected test is no longer in view
+  useEffect(() => {
+    if (selectedTest && !displayTests.find(t => t.id === selectedTest.id)) {
+      setSelectedTest(null);
+    }
+  }, [displayTests, selectedTest]);
+
+  const handleDeleteTest = async () => {
+    if (!selectedTest) return;
+    
+    const confirmDelete = window.confirm(
+      `Are you sure you want to permanently delete the test "${selectedTest.testName}" and all associated student scores? This action cannot be undone.`
+    );
+    if (!confirmDelete) return;
+
+    setIsDeleting(true);
+    try {
+      const batch = writeBatch(db);
+
+      // 1. Determine collections
+      let testCollection = "";
+      let scoreCollection = "";
+      
+      if (selectedTest.type === "theory") {
+        testCollection = "theoryTests";
+        scoreCollection = "theoryMarks";
+      } else if (selectedTest.type === "online") {
+        testCollection = "tests";
+        scoreCollection = "results";
+      } else if (selectedTest.type === "omr") {
+        testCollection = "omrTests";
+        scoreCollection = "omr_results";
+      }
+
+      // 2. Delete the test document itself
+      const testDocRef = doc(db, testCollection, selectedTest.id);
+      batch.delete(testDocRef);
+
+      // 3. Find and delete all score documents for this test
+      const scoresQuery = query(collection(db, scoreCollection), where("testId", "==", selectedTest.id));
+      const scoresSnapshot = await getDocs(scoresQuery);
+      scoresSnapshot.docs.forEach((scoreDoc) => {
+        batch.delete(scoreDoc.ref);
+      });
+
+      // 4. Commit the batch
+      await batch.commit();
+
+      // 5. Update UI state locally so we don't have to refetch everything
+      if (selectedTest.type === "theory") {
+        setTheoryTests(prev => prev.filter(t => t.id !== selectedTest.id));
+      } else if (selectedTest.type === "online") {
+        setOnlineTests(prev => prev.filter(t => t.id !== selectedTest.id));
+      } else if (selectedTest.type === "omr") {
+        setOmrTests(prev => prev.filter(t => t.id !== selectedTest.id));
+      }
+
+      toast.success("Test and all associated scores deleted successfully");
+      setSelectedTest(null);
+    } catch (error) {
+      console.error("Error deleting test:", error);
+      toast.error("Failed to delete test");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <div className="space-y-8 max-w-[1400px] mx-auto py-8 px-4">
@@ -188,6 +303,12 @@ export default function BatchScoresPage({ params }: { params: Promise<{ batchId:
             >
               <FileText size={16} /> Online
             </button>
+            <button 
+              onClick={() => setActiveTab("omr")}
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${activeTab === "omr" ? "bg-white text-purple-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+            >
+              <ListChecks size={16} /> OMR
+            </button>
           </div>
         </div>
       </div>
@@ -209,98 +330,157 @@ export default function BatchScoresPage({ params }: { params: Promise<{ batchId:
           <h3 className="text-xl font-bold text-slate-900 mb-2">No Tests Found</h3>
           <p className="text-slate-500">There are no {activeTab !== "all" ? activeTab : ""} tests recorded for this batch yet.</p>
         </div>
+      ) : !selectedTest ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {displayTests.map((test) => (
+            <div 
+              key={test.id} 
+              onClick={() => setSelectedTest(test)}
+              className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 cursor-pointer hover:shadow-md hover:border-brand-blue/30 hover:scale-[1.02] transition-all duration-300 group flex flex-col h-full"
+            >
+              <div className="flex justify-between items-start mb-4">
+                <span className={`text-xs px-3 py-1 rounded-full font-bold ${
+                  test.type === 'theory' ? 'bg-orange-50 text-brand-orange border border-brand-orange/20' : 
+                  test.type === 'omr' ? 'bg-purple-50 text-purple-600 border border-purple-500/20' : 
+                  'bg-blue-50 text-brand-blue border border-brand-blue/20'
+                }`}>
+                  {test.type === 'theory' ? 'Theory' : test.type === 'omr' ? 'OMR' : 'Online'}
+                </span>
+                <span className="text-sm font-medium text-slate-400 flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">
+                  <Calendar size={14} className="text-slate-400" />
+                  {new Date(test.date).toLocaleDateString()}
+                </span>
+              </div>
+              
+              <h3 className="text-lg font-bold text-slate-900 mb-2 group-hover:text-brand-blue transition-colors line-clamp-2 leading-tight">
+                {test.testName}
+              </h3>
+              
+              <div className="mt-auto pt-4 flex items-center justify-between border-t border-slate-50">
+                <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-600 bg-slate-50 px-3 py-1.5 rounded-xl">
+                  <Award size={16} className="text-slate-400" />
+                  Max: {test.totalMarks}
+                </div>
+                
+                <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-brand-blue group-hover:text-white transition-colors shadow-sm">
+                  <ChevronRight size={18} className="translate-x-0.5" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       ) : (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col">
+          <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <button 
+                onClick={() => setSelectedTest(null)}
+                className="flex items-center gap-2 text-brand-blue hover:text-blue-700 font-medium mb-3 transition-colors text-sm"
+              >
+                <ArrowLeft size={16} /> Back to All Tests
+              </button>
+              <div className="flex items-center gap-3">
+                <h2 className="text-2xl font-bold text-slate-900">{selectedTest.testName}</h2>
+                <span className={`text-xs px-2.5 py-1 rounded-lg font-bold ${
+                  selectedTest.type === 'theory' ? 'bg-orange-100 text-orange-700' : 
+                  selectedTest.type === 'omr' ? 'bg-purple-100 text-purple-700' : 
+                  'bg-blue-100 text-blue-700'
+                }`}>
+                  {selectedTest.type === 'theory' ? 'Theory' : selectedTest.type === 'omr' ? 'OMR' : 'Online'}
+                </span>
+              </div>
+              <div className="flex items-center gap-4 mt-2 text-sm text-slate-500 font-medium">
+                <span className="flex items-center gap-1.5"><Calendar size={14} /> {new Date(selectedTest.date).toLocaleDateString()}</span>
+                <span className="flex items-center gap-1.5"><Award size={14} /> Max Marks: {selectedTest.totalMarks}</span>
+                <span className="flex items-center gap-1.5"><Users size={14} /> {students.length} Students</span>
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mt-4 sm:mt-0">
+              {selectedTest.type === "omr" && (
+                <button
+                  onClick={() => downloadOmrResultSheet(selectedTest.id).catch((error) => toast.error(error.message))}
+                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
+                >
+                  <Download size={16} />
+                  Download Result Sheets
+                </button>
+              )}
+              <button
+                onClick={handleDeleteTest}
+                disabled={isDeleting}
+                className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 text-sm font-semibold rounded-lg shadow-sm transition-colors disabled:opacity-50"
+                title="Delete Test"
+              >
+                {isDeleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                <span className="hidden sm:inline">Delete Test</span>
+              </button>
+              <button 
+                onClick={() => setSelectedTest(null)}
+                className="hidden sm:flex p-2 text-slate-400 hover:text-slate-700 bg-white border border-slate-200 rounded-full shadow-sm hover:shadow transition-all"
+                title="Close"
+              >
+                <X size={20} />
+              </button>
+            </div>
+          </div>
+          
           <div className="overflow-x-auto">
             <table className="w-full text-left whitespace-nowrap min-w-max">
               <thead className="bg-slate-50 border-b border-slate-100">
                 <tr>
-                  <th className="py-4 px-6 font-semibold text-slate-700 sticky left-0 z-10 bg-slate-50 border-r border-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
-                    Student
+                  <th className="py-4 px-6 font-semibold text-slate-700 sticky left-0 z-10 bg-slate-50 border-r border-slate-100 w-16 text-center">
+                    #
                   </th>
-                  {displayTests.map(test => (
-                    <th key={test.id} className="py-4 px-6 text-center border-l border-slate-100">
-                      <div className="flex flex-col items-center gap-1">
-                        <span className={`text-xs px-2 py-0.5 rounded font-medium ${test.type === 'theory' ? 'bg-orange-50 text-brand-orange' : 'bg-blue-50 text-brand-blue'}`}>
-                          {test.type === 'theory' ? 'Theory' : 'Online'}
-                        </span>
-                        <span className="font-semibold text-slate-900 truncate max-w-[150px]" title={test.testName}>
-                          {test.testName}
-                        </span>
-                        <span className="text-xs text-slate-400">
-                          {new Date(test.date).toLocaleDateString()}
-                        </span>
-                        <span className="text-xs font-bold text-slate-500 mt-1">
-                          Max: {test.totalMarks}
-                        </span>
-                      </div>
-                    </th>
-                  ))}
-                  <th className="py-4 px-6 text-center border-l border-slate-100 font-bold text-brand-blue bg-blue-50/50">
-                    Overall %
+                  <th className="py-4 px-6 font-semibold text-slate-700 border-r border-slate-100">
+                    Student Details
+                  </th>
+                  <th className="py-4 px-6 font-semibold text-slate-700 text-center border-r border-slate-100">
+                    Marks Obtained
+                  </th>
+                  <th className="py-4 px-6 font-semibold text-slate-700 text-center bg-blue-50/50">
+                    Percentage / Grade
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {students.map((student, index) => {
-                  let totalObtained = 0;
-                  let totalMax = 0;
+                  let mark = undefined;
+                  if (selectedTest.type === "theory") {
+                    mark = theoryMarksMap[student.id]?.[selectedTest.id];
+                  } else if (selectedTest.type === "omr") {
+                    mark = omrResultsMap[student.id]?.[selectedTest.id];
+                  } else {
+                    mark = onlineResultsMap[student.id]?.[selectedTest.id];
+                  }
+
+                  const percentage = mark !== undefined && selectedTest.totalMarks > 0 
+                    ? Math.round((mark / selectedTest.totalMarks) * 100) 
+                    : null;
 
                   return (
                     <tr key={student.id} className="hover:bg-slate-50/50 transition-colors group">
-                      <td className="py-3 px-6 sticky left-0 z-10 bg-white group-hover:bg-slate-50 border-r border-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
-                        <div className="flex items-center gap-3">
-                          <span className="text-slate-400 font-mono text-xs w-5">{index + 1}.</span>
-                          <div>
-                            <p className="font-medium text-slate-900">{student.name}</p>
-                            <p className="text-xs text-slate-500">{student.mobile}</p>
-                          </div>
-                        </div>
+                      <td className="py-4 px-6 sticky left-0 z-10 bg-white group-hover:bg-slate-50 border-r border-slate-100 text-slate-400 font-mono text-center">
+                        {index + 1}
                       </td>
-                      
-                      {displayTests.map(test => {
-                        let mark = undefined;
-                        if (test.type === "theory") {
-                          mark = theoryMarksMap[student.id]?.[test.id];
-                        } else {
-                          mark = onlineResultsMap[student.id]?.[test.id];
-                        }
-
-                        if (mark !== undefined) {
-                          totalObtained += mark;
-                          totalMax += test.totalMarks;
-                        }
-
-                        const percentage = mark !== undefined && test.totalMarks > 0 
-                          ? Math.round((mark / test.totalMarks) * 100) 
-                          : null;
-
-                        return (
-                          <td key={test.id} className="py-3 px-6 text-center border-l border-slate-100/50">
-                            {mark !== undefined ? (
-                              <div className="flex flex-col items-center">
-                                <span className="font-bold text-slate-900">{mark}</span>
-                                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-sm mt-1 ${
-                                  percentage! >= 75 ? 'bg-green-100 text-green-700' :
-                                  percentage! >= 60 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
-                                }`}>
-                                  {percentage}%
-                                </span>
-                              </div>
-                            ) : (
-                              <span className="text-slate-300">-</span>
-                            )}
-                          </td>
-                        );
-                      })}
-                      
-                      <td className="py-3 px-6 text-center border-l border-slate-100 bg-blue-50/20">
-                        {totalMax > 0 ? (
-                          <span className={`font-bold text-lg ${
-                            (totalObtained / totalMax) >= 0.75 ? 'text-green-600' :
-                            (totalObtained / totalMax) >= 0.60 ? 'text-yellow-600' : 'text-red-600'
+                      <td className="py-4 px-6 border-r border-slate-100">
+                        <p className="font-bold text-slate-900">{student.name}</p>
+                        <p className="text-xs font-medium text-slate-500 mt-0.5">{student.mobile}</p>
+                      </td>
+                      <td className="py-4 px-6 text-center border-r border-slate-100">
+                        {mark !== undefined ? (
+                          <span className="font-black text-lg text-slate-900">{mark}</span>
+                        ) : (
+                          <span className="text-slate-300 font-medium italic text-sm">Not Attempted</span>
+                        )}
+                      </td>
+                      <td className="py-4 px-6 text-center bg-blue-50/20">
+                        {percentage !== null ? (
+                          <span className={`font-bold text-sm px-3 py-1.5 rounded-lg border ${
+                            percentage >= 75 ? 'bg-green-50 text-green-700 border-green-200' :
+                            percentage >= 60 ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 
+                            'bg-red-50 text-red-700 border-red-200'
                           }`}>
-                            {Math.round((totalObtained / totalMax) * 100)}%
+                            {percentage}%
                           </span>
                         ) : (
                           <span className="text-slate-300">-</span>

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { collection, query, orderBy, onSnapshot, where } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import { Button } from "@/components/ui/Button";
-import { Plus, FileText, Calendar, Users, BarChart, ShieldAlert, Trash2 } from "lucide-react";
+import { Plus, FileText, Calendar, Users, BarChart, ShieldAlert, Trash2, Edit } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { useSearchParams } from "next/navigation";
@@ -91,8 +91,13 @@ function AdminTestsContent() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {tests.map(test => (
-            <div key={test.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-md transition-shadow flex flex-col">
+          {tests.map(test => {
+            const now = new Date();
+            const startDateTime = new Date(`${test.testDate}T${test.startTime}`);
+            const hasStarted = now >= startDateTime;
+
+            return (
+              <div key={test.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-md transition-shadow flex flex-col">
               <div className={`h-2 ${test.status === 'Published' ? 'bg-green-500' : 'bg-slate-300'}`} />
               <div className="p-6 flex flex-col flex-1">
                 <div className="flex justify-between items-start mb-4">
@@ -127,7 +132,18 @@ function AdminTestsContent() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2 mt-auto">
+                <div className="grid grid-cols-2 gap-2 mt-auto">
+                  {hasStarted ? (
+                    <Button variant="outline" disabled className="w-full text-xs py-1.5 h-auto bg-slate-50 border-slate-200 text-slate-400 px-1 cursor-not-allowed" title="Cannot edit started test">
+                      <Edit size={14} className="mr-1" /> Edit
+                    </Button>
+                  ) : (
+                    <Link href={`/admin/dashboard/tests/${test.id}/edit`}>
+                      <Button variant="outline" className="w-full text-xs py-1.5 h-auto bg-brand-orange/5 border-brand-orange/20 text-brand-orange hover:bg-brand-orange/10 px-1">
+                        <Edit size={14} className="mr-1" /> Edit
+                      </Button>
+                    </Link>
+                  )}
                   <Link href={`/admin/dashboard/tests/${test.id}/questions`}>
                     <Button variant="outline" className="w-full text-xs py-1.5 h-auto bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 px-1">
                       <FileText size={14} className="mr-1" /> Qs
@@ -146,7 +162,8 @@ function AdminTestsContent() {
                 </div>
               </div>
             </div>
-          ))}
+          );
+        })}
         </div>
       )}
     </div>

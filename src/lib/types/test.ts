@@ -10,7 +10,14 @@ export interface Question {
   questionText: string;
   subject: Subject;
   questionType: QuestionType;
+  imageUrl?: string;
   options?: {
+    A?: string;
+    B?: string;
+    C?: string;
+    D?: string;
+  };
+  optionImages?: {
     A?: string;
     B?: string;
     C?: string;

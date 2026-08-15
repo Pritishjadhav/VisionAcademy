@@ -41,6 +41,7 @@ export interface OmrResult {
   numericalCorrect?: number;
   numericalWrong?: number;
   numericalUnattempted?: number;
+  answerKey?: number[];
   createdAt: string;
   updatedAt: string;
 }

@@ -6,8 +6,8 @@ import { collection, query, where, getDoc, doc, onSnapshot } from "firebase/fire
 import { db } from "@/lib/firebase/config";
 import { useAuth } from "@/context/AuthContext";
 import { Test, TestResult } from "@/lib/types/test";
-import { 
-  Loader2, ArrowLeft, Trophy, BarChart, CheckCircle2, Clock, 
+import {
+  Loader2, ArrowLeft, Trophy, BarChart, CheckCircle2, Clock,
   Calendar, FileText, User, XCircle, Calendar as CalendarIcon, DollarSign
 } from "lucide-react";
 import Link from "next/link";
@@ -50,7 +50,7 @@ export default function StudentDetailsPage() {
   const { studentId } = useParams() as { studentId: string };
   const router = useRouter();
   const { user, dbUser } = useAuth();
-  
+
   const [activeTab, setActiveTab] = useState<"attendance" | "tests" | "theory" | "fees">("attendance");
   const [studentName, setStudentName] = useState("");
   const [studentBatch, setStudentBatch] = useState("");
@@ -66,7 +66,7 @@ export default function StudentDetailsPage() {
       if (!studentId) router.replace("/parent/dashboard");
       return;
     }
-    
+
     // Verify authorization
     if (!(dbUser.studentIds as string[])?.includes(studentId)) {
       router.replace("/parent/dashboard");
@@ -85,10 +85,10 @@ export default function StudentDetailsPage() {
 
     // Real-time listener for results
     const resQ = query(
-      collection(db, "results"), 
+      collection(db, "results"),
       where("studentId", "==", studentId)
     );
-    
+
     const unsubscribeResults = onSnapshot(resQ, async (resSnap) => {
       try {
         const sortedDocs = [...resSnap.docs].sort((a, b) => {
@@ -96,16 +96,16 @@ export default function StudentDetailsPage() {
           const bData = b.data() as TestResult;
           return new Date(aData.createdAt).getTime() - new Date(bData.createdAt).getTime();
         });
-        
+
         // Deduplicate by testId (keep the latest one)
         const latestResults = new Map<string, TestResult>();
         for (const rDoc of sortedDocs) {
           const resultData = rDoc.data() as TestResult;
           latestResults.set(resultData.testId, { ...resultData, id: rDoc.id });
         }
-        
+
         const extResults: ExtendedTestResult[] = [];
-        
+
         for (const rData of Array.from(latestResults.values())) {
           // Fetch test info
           const tSnap = await getDoc(doc(db, "tests", rData.testId));
@@ -113,7 +113,7 @@ export default function StudentDetailsPage() {
             extResults.push({ ...rData, testDetails: { id: tSnap.id, ...tSnap.data() } as Test } as ExtendedTestResult);
           }
         }
-        
+
         setResults(extResults);
       } catch (error) {
         console.error("Error processing results:", error);
@@ -125,7 +125,7 @@ export default function StudentDetailsPage() {
       collection(db, "attendance"),
       where("studentId", "==", studentId)
     );
-    
+
     const unsubscribeAttendance = onSnapshot(attQ, (attSnap) => {
       const fetchedRecords: AttendanceRecord[] = [];
       attSnap.forEach((doc) => {
@@ -142,7 +142,7 @@ export default function StudentDetailsPage() {
       collection(db, "theoryMarks"),
       where("studentId", "==", studentId)
     );
-    
+
     const unsubscribeTheory = onSnapshot(theoryQ, (theorySnap) => {
       const fetchedMarks: TheoryMark[] = [];
       theorySnap.forEach((doc) => {
@@ -152,7 +152,7 @@ export default function StudentDetailsPage() {
       fetchedMarks.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       setTheoryMarks(fetchedMarks);
     });
-    
+
     // Real-time listener for fee payments
     const feesQ = query(
       collection(db, "feePayments"),
@@ -187,11 +187,13 @@ export default function StudentDetailsPage() {
   const attendancePercentage = totalClasses > 0 ? Math.round((presentCount / totalClasses) * 100) : 0;
 
   // Derived Test Stats
-  const chartData = results.map(r => ({
-    name: r.testDetails.testName,
-    percentage: r.percentage,
-    accuracy: r.overallAccuracy
-  }));
+  const chartData = [...results]
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+    .map(r => ({
+      name: r.testDetails.testName,
+      percentage: r.percentage,
+      accuracy: r.overallAccuracy
+    }));
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -220,9 +222,8 @@ export default function StudentDetailsPage() {
       <div className="flex gap-4 border-b border-slate-200">
         <button
           onClick={() => setActiveTab("attendance")}
-          className={`pb-4 px-2 text-sm font-semibold transition-colors relative ${
-            activeTab === "attendance" ? "text-brand-blue" : "text-slate-500 hover:text-slate-700"
-          }`}
+          className={`pb-4 px-2 text-sm font-semibold transition-colors relative ${activeTab === "attendance" ? "text-brand-blue" : "text-slate-500 hover:text-slate-700"
+            }`}
         >
           Attendance
           {activeTab === "attendance" && (
@@ -231,9 +232,8 @@ export default function StudentDetailsPage() {
         </button>
         <button
           onClick={() => setActiveTab("tests")}
-          className={`pb-4 px-2 text-sm font-semibold transition-colors relative ${
-            activeTab === "tests" ? "text-brand-blue" : "text-slate-500 hover:text-slate-700"
-          }`}
+          className={`pb-4 px-2 text-sm font-semibold transition-colors relative ${activeTab === "tests" ? "text-brand-blue" : "text-slate-500 hover:text-slate-700"
+            }`}
         >
           Online Tests & Results
           {activeTab === "tests" && (
@@ -242,9 +242,8 @@ export default function StudentDetailsPage() {
         </button>
         <button
           onClick={() => setActiveTab("theory")}
-          className={`pb-4 px-2 text-sm font-semibold transition-colors relative ${
-            activeTab === "theory" ? "text-brand-blue" : "text-slate-500 hover:text-slate-700"
-          }`}
+          className={`pb-4 px-2 text-sm font-semibold transition-colors relative ${activeTab === "theory" ? "text-brand-blue" : "text-slate-500 hover:text-slate-700"
+            }`}
         >
           Theory Marks
           {activeTab === "theory" && (
@@ -253,9 +252,8 @@ export default function StudentDetailsPage() {
         </button>
         <button
           onClick={() => setActiveTab("fees")}
-          className={`pb-4 px-2 text-sm font-semibold transition-colors relative ${
-            activeTab === "fees" ? "text-brand-blue" : "text-slate-500 hover:text-slate-700"
-          }`}
+          className={`pb-4 px-2 text-sm font-semibold transition-colors relative ${activeTab === "fees" ? "text-brand-blue" : "text-slate-500 hover:text-slate-700"
+            }`}
         >
           Fees
           {activeTab === "fees" && (
@@ -298,7 +296,7 @@ export default function StudentDetailsPage() {
                         {new Date(record.date).toLocaleDateString("en-US", { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
                       </span>
                     </div>
-                    
+
                     {record.status === "present" && (
                       <span className="flex items-center gap-1.5 px-3 py-1 bg-green-100 text-green-700 rounded-lg text-sm font-medium">
                         <CheckCircle2 size={14} /> Present
@@ -374,12 +372,12 @@ export default function StudentDetailsPage() {
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                         <XAxis dataKey="name" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
                         <YAxis tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
-                        <Tooltip 
+                        <Tooltip
                           contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                         />
                         <Legend />
-                        <Line type="monotone" dataKey="percentage" name="Score %" stroke="#0047FF" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                        <Line type="monotone" dataKey="accuracy" name="Accuracy %" stroke="#FF6B00" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                        <Line type="linear" dataKey="percentage" name="Score %" stroke="#0047FF" strokeWidth={2} dot={{ r: 4, fill: '#0047FF', strokeWidth: 0 }} activeDot={{ r: 6, strokeWidth: 0, fill: '#0047FF' }} />
+                        <Line type="linear" dataKey="accuracy" name="Accuracy %" stroke="#FF6B00" strokeWidth={2} dot={{ r: 4, fill: '#FF6B00', strokeWidth: 0 }} activeDot={{ r: 6, strokeWidth: 0, fill: '#FF6B00' }} />
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
@@ -441,10 +439,9 @@ export default function StudentDetailsPage() {
                             <span className="text-slate-400"> / {mark.totalMarks}</span>
                           </td>
                           <td className="py-4 px-6 text-right">
-                            <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-sm font-bold ${
-                              percentage >= 75 ? 'bg-green-50 text-green-700' :
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-sm font-bold ${percentage >= 75 ? 'bg-green-50 text-green-700' :
                               percentage >= 60 ? 'bg-yellow-50 text-yellow-700' : 'bg-red-50 text-red-700'
-                            }`}>
+                              }`}>
                               {percentage}%
                             </span>
                           </td>

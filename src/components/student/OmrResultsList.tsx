@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { CheckCircle2, FileCheck2, XCircle } from "lucide-react";
 import { getOmrResultsForStudent } from "@/actions/omr";
 import { getRequiredIdToken } from "@/lib/auth-token";
-import { OmrResult } from "@/lib/types/omr";
+import { JEE_NUMERICAL_QUESTIONS, OmrResult, omrQuestionNumbers } from "@/lib/types/omr";
 
 export function OmrResultsList({ studentId }: { studentId: string }) {
   const [results, setResults] = useState<OmrResult[]>([]);
@@ -83,9 +83,64 @@ export function OmrResultsList({ studentId }: { studentId: string }) {
                 Score: {result.percentage}% · Positive: +{result.positiveMarks} · Negative: −{result.negativeMarks}
               </p>
               {result.examType === "JEE" && (
-                <p className="text-xs text-amber-700 mt-2">
+                <p className="text-xs text-amber-700 mt-2 mb-4">
                   Numerical section: {result.numericalCorrect ?? 0} correct · {result.numericalWrong ?? 0} wrong · {result.numericalUnattempted ?? 15} blank
                 </p>
+              )}
+              
+              {result.answerKey && result.selectedAnswers && (
+                <div className="mt-4">
+                  <p className="font-semibold text-slate-700 mb-2 text-sm">Question Breakdown</p>
+                  <div className="border border-slate-200 rounded-xl bg-slate-50 p-3 max-h-64 overflow-y-auto custom-scrollbar">
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+                      {omrQuestionNumbers(result.examType, result.totalQuestions).map((qNum, i) => {
+                        const isNumerical = result.examType === "JEE" && JEE_NUMERICAL_QUESTIONS.includes(qNum);
+                        let status = "";
+                        let studentChoiceStr = "";
+                        let correctChoiceStr = "";
+                        
+                        if (isNumerical) {
+                          const numIdx = JEE_NUMERICAL_QUESTIONS.indexOf(qNum);
+                          const numStat = result.numericalAnswers?.[numIdx] || "blank";
+                          status = numStat === "correct" ? "bg-green-100 text-green-800" : numStat === "wrong" ? "bg-red-100 text-red-800" : "bg-slate-200 text-slate-800";
+                          studentChoiceStr = numStat === "correct" ? "✓" : numStat === "wrong" ? "✗" : "-";
+                        } else {
+                          let idx = i;
+                          if (result.examType === "JEE") {
+                            if (qNum >= 1 && qNum <= 20) idx = qNum - 1;
+                            else if (qNum >= 26 && qNum <= 45) idx = qNum - 26 + 20;
+                            else if (qNum >= 51 && qNum <= 70) idx = qNum - 51 + 40;
+                          }
+                          
+                          const studentChoice = result.selectedAnswers[idx];
+                          const correctChoice = result.answerKey![idx];
+                          
+                          if (studentChoice === null) {
+                            status = "bg-slate-200 text-slate-800";
+                            studentChoiceStr = "-";
+                          } else if (studentChoice === correctChoice) {
+                            status = "bg-green-100 text-green-800";
+                            studentChoiceStr = String.fromCharCode(64 + studentChoice);
+                          } else {
+                            status = "bg-red-100 text-red-800";
+                            studentChoiceStr = String.fromCharCode(64 + studentChoice);
+                          }
+                          correctChoiceStr = correctChoice ? String.fromCharCode(64 + correctChoice) : "?";
+                        }
+                        
+                        return (
+                          <div key={qNum} className={`flex flex-col items-center justify-center p-1.5 rounded-md text-xs font-medium ${status}`}>
+                            <span className="opacity-75 text-[10px]">Q{qNum}</span>
+                            <span className="font-bold text-sm leading-none mt-0.5">{studentChoiceStr}</span>
+                            {!isNumerical && studentChoiceStr !== "-" && studentChoiceStr !== correctChoiceStr && (
+                              <span className="text-[9px] opacity-75 mt-0.5">(Ans: {correctChoiceStr})</span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
               )}
             </article>
           ))}

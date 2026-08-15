@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@/context/AuthContext";
-import { Loader2, CalendarCheck, FileText, BookOpen, DollarSign } from "lucide-react";
+import { Loader2, CalendarCheck, FileText, BookOpen, DollarSign, ListChecks } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -11,7 +11,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { StudentAttendanceHistoryModal } from "@/components/admin/StudentAttendanceHistoryModal";
 import { StudentFeesHistoryModal } from "@/components/student/StudentFeesHistoryModal";
 import { FeePayment } from "@/components/admin/FeePaymentModal";
-import { OmrResultsList } from "@/components/student/OmrResultsList";
+
 
 export default function StudentDashboard() {
   const { user, role, loading, dbUser } = useAuth();
@@ -269,8 +269,33 @@ export default function StudentDashboard() {
             </div>
           </div>
         </div>
+        {/* OMR Results Card */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-md transition-shadow flex flex-col">
+          <div className="h-2 bg-gradient-to-r from-purple-500 to-pink-500" />
+          <div className="p-6 flex flex-col flex-1">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-purple-600">
+                <ListChecks size={24} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">OMR Results</h3>
+                <p className="text-sm text-slate-500">View graded answer sheets</p>
+              </div>
+            </div>
+            
+            <div className="flex-1 flex flex-col justify-center">
+              <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 text-center mb-4">
+                <p className="text-slate-500 text-sm">Access your physical OMR test results and graded sheets.</p>
+              </div>
+              <Link href="/student/dashboard/omr" className="w-full">
+                <button className="w-full py-2.5 text-sm font-medium text-purple-700 bg-purple-50 rounded-xl hover:bg-purple-100 transition-colors">
+                  Go to OMR Marks
+                </button>
+              </Link>
+            </div>
+          </div>
+        </div>
       </div>
-      <OmrResultsList studentId={user.uid} />
       <StudentAttendanceHistoryModal
         isOpen={isHistoryModalOpen}
         onClose={() => setIsHistoryModalOpen(false)}

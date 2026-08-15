@@ -24,6 +24,7 @@ interface Student {
   dateOfBirth?: string;
   batch?: string;
   createdAt?: string;
+  photoURL?: string;
 }
 
 const BATCHES = [
@@ -48,6 +49,8 @@ export default function BatchPage({ params }: { params: Promise<{ batchId: strin
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [loading, setLoading] = useState(true);
   const [attendanceStats, setAttendanceStats] = useState<Record<string, { total: number, present: number }>>({});
+
+
 
   useEffect(() => {
     const q = query(collection(db, "students"), orderBy("createdAt", "desc"));
@@ -159,6 +162,8 @@ export default function BatchPage({ params }: { params: Promise<{ batchId: strin
         )}
       </div>
 
+
+
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 flex flex-col sm:flex-row gap-4 justify-between">
         <div className="relative max-w-md w-full">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
@@ -224,9 +229,13 @@ export default function BatchPage({ params }: { params: Promise<{ batchId: strin
                             href={`/admin/dashboard/batch/${encodeURIComponent(batchName)}/student/${student.id}`}
                             className="flex items-center gap-3 group -ml-2 p-2 rounded-xl hover:bg-brand-blue/5 transition-colors"
                           >
-                            <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold bg-brand-orange/10 text-brand-orange group-hover:bg-brand-orange group-hover:text-white transition-colors">
-                              {student.name.charAt(0).toUpperCase()}
-                            </div>
+                            {student.photoURL ? (
+                              <img src={student.photoURL} alt={student.name} className="w-10 h-10 rounded-full object-cover shadow-sm group-hover:ring-2 ring-brand-blue/50 transition-all" />
+                            ) : (
+                              <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold bg-brand-orange/10 text-brand-orange group-hover:bg-brand-orange group-hover:text-white transition-colors">
+                                {student.name.charAt(0).toUpperCase()}
+                              </div>
+                            )}
                             <div>
                               <p className="font-medium text-slate-900 group-hover:text-brand-blue transition-colors">{student.name}</p>
                               <p className="text-xs text-slate-500 flex items-center gap-1">
