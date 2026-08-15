@@ -82,6 +82,11 @@ export function OmrResultsList({ studentId }: { studentId: string }) {
               <p className="text-sm font-semibold text-slate-600 mt-4">
                 Score: {result.percentage}% · Positive: +{result.positiveMarks} · Negative: −{result.negativeMarks}
               </p>
+              {result.examType === "JEE" && (
+                <p className="text-xs text-amber-700 mt-2">
+                  Numerical section: {result.numericalCorrect ?? 0} correct · {result.numericalWrong ?? 0} wrong · {result.numericalUnattempted ?? 15} blank
+                </p>
+              )}
             </article>
           ))}
         </div>

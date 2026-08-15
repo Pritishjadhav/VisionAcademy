@@ -1,5 +1,5 @@
 import { getRequiredIdToken } from "@/lib/auth-token";
-import { OmrExamType } from "@/lib/types/omr";
+import type { OmrExamType } from "@/lib/types/omr";
 
 export type OmrGradeResult = {
   score: number;

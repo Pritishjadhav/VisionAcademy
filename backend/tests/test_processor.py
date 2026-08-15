@@ -196,6 +196,50 @@ def test_generated_20_question_sheet_has_no_false_marks() -> None:
     assert result.selected_answers == [None] * 20
 
 
+def test_generated_custom_40_question_sheet_has_no_false_marks() -> None:
+    image = decode_document(
+        generate_sheet_pdf(40, 5, "Custom Practice Test", "CUSTOM"),
+        "application/pdf",
+    )
+    result = grade_image(image, 40, 5, [1] * 40, "CUSTOM")
+    assert result.selected_answers == [None] * 40
+
+
+def test_grades_filled_generated_custom_40_question_sheet() -> None:
+    from reportlab.lib.pagesizes import A4
+
+    answers = [(index % 5) + 1 for index in range(40)]
+    image = decode_document(
+        generate_sheet_pdf(40, 5, "Custom Practice Test", "CUSTOM"),
+        "application/pdf",
+    )
+    page_width, page_height = A4
+    scale = image.shape[1] / page_width
+    left, right = 31, page_width - 31
+    bottom, top = 48, page_height - 294
+    columns, rows = 2, 30
+    block_width = (right - left) / columns
+    row_height = (top - bottom - 18) / rows
+    label_width = min(15, block_width * 0.18)
+    choice_width = (block_width - label_width - 5) / 5
+
+    for question_index, answer in enumerate(answers):
+        column, row = divmod(question_index, rows)
+        x = left + column * block_width + label_width + (answer - 0.5) * choice_width
+        y = top - 22 - row * row_height
+        cv2.circle(
+            image,
+            (round(x * scale), round((page_height - y) * scale)),
+            round(4.2 * scale),
+            (0, 0, 0),
+            cv2.FILLED,
+        )
+
+    result = grade_image(image, 40, 5, answers, "CUSTOM")
+    assert result.selected_answers == answers
+    assert result.score == 100
+
+
 def test_jee_question_layout_skips_numerical_slots() -> None:
     columns, rows, slots = _question_layout(60, "JEE")
     assert (columns, rows) == (3, 25)

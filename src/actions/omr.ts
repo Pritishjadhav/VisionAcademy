@@ -3,7 +3,7 @@
 import { adminDb } from "@/lib/firebase/admin";
 import { requireAdmin, requireUser } from "@/lib/server/auth";
 import { enforceRateLimit } from "@/lib/server/rate-limit";
-import type { OmrExamType, OmrResult, OmrTest } from "@/lib/types/omr";
+import type { OmrExamType, OmrNumericalStatus, OmrResult, OmrTest } from "@/lib/types/omr";
 
 const BATCHES = new Set([
   "11th IIT-JEE Integrated",
@@ -13,7 +13,9 @@ const BATCHES = new Set([
 ]);
 
 function validateExamType(value: string): asserts value is OmrExamType {
-  if (value !== "JEE" && value !== "NEET") throw new Error("Select JEE or NEET.");
+  if (value !== "JEE" && value !== "NEET" && value !== "CUSTOM") {
+    throw new Error("Select JEE, NEET, or Custom.");
+  }
 }
 
 export async function getOmrSetupData(idToken: string, batch: string) {
@@ -69,6 +71,8 @@ export async function createOmrTest(
     testDate: string;
     batch: string;
     examType: string;
+    totalQuestions?: number;
+    choices?: number;
     marksPerCorrectAnswer: number;
     marksPerWrongAnswer: number;
     answerKey: number[];
@@ -77,10 +81,25 @@ export async function createOmrTest(
   const actor = await requireAdmin(idToken);
   enforceRateLimit(`action:create-omr-test:${actor.uid}`, 20);
   validateExamType(input.examType);
-  const totalQuestions = input.examType === "JEE" ? 60 : 180;
+  const omrQuestions = input.examType === "JEE"
+    ? 60
+    : input.examType === "NEET"
+      ? 180
+      : Number(input.totalQuestions);
+  const totalQuestions = input.examType === "JEE" ? 75 : omrQuestions;
+  const choices = input.examType === "CUSTOM" ? Number(input.choices) : 4;
   if (!input.testName.trim() || !input.testDate) throw new Error("Test name and date are required.");
   if (!BATCHES.has(input.batch)) throw new Error("Select a valid batch.");
-  if (input.answerKey.length !== totalQuestions || input.answerKey.some((answer) => answer < 1 || answer > 4)) {
+  if (input.examType === "CUSTOM" && (!Number.isInteger(omrQuestions) || omrQuestions < 1 || omrQuestions > 60)) {
+    throw new Error("Custom tests support 1 to 60 questions.");
+  }
+  if (!Number.isInteger(choices) || choices < 2 || choices > 5) {
+    throw new Error("Select between 2 and 5 choices.");
+  }
+  if (
+    input.answerKey.length !== omrQuestions
+    || input.answerKey.some((answer) => answer < 1 || answer > choices)
+  ) {
     throw new Error("Complete the answer key before creating the test.");
   }
   if (input.marksPerCorrectAnswer <= 0 || input.marksPerWrongAnswer < 0) {
@@ -94,7 +113,8 @@ export async function createOmrTest(
     batch: input.batch,
     examType: input.examType,
     totalQuestions,
-    choices: 4 as const,
+    omrQuestions,
+    choices,
     marksPerCorrectAnswer: input.marksPerCorrectAnswer,
     marksPerWrongAnswer: input.marksPerWrongAnswer,
     maxMarks: totalQuestions * input.marksPerCorrectAnswer,
@@ -112,6 +132,7 @@ export async function saveOmrResult(
     testId: string;
     studentId: string;
     selectedAnswers: Array<number | null>;
+    numericalAnswers?: OmrNumericalStatus[];
   },
 ) {
   const actor = await requireAdmin(idToken);
@@ -125,7 +146,19 @@ export async function saveOmrResult(
   const test = testSnapshot.data()!;
   const student = studentSnapshot.data()!;
   if (student.batch !== test.batch) throw new Error("The student is not in this test batch.");
-  if (input.selectedAnswers.length !== test.totalQuestions) throw new Error("Invalid graded answer count.");
+  const omrQuestions = test.omrQuestions ?? (test.examType === "JEE" ? 60 : test.totalQuestions);
+  if (input.selectedAnswers.length !== omrQuestions) throw new Error("Invalid graded answer count.");
+  const numericalAnswers = test.examType === "JEE" ? input.numericalAnswers : [];
+  if (
+    test.examType === "JEE"
+    && (
+      !Array.isArray(numericalAnswers)
+      || numericalAnswers.length !== 15
+      || numericalAnswers.some((status) => !["correct", "wrong", "blank"].includes(status))
+    )
+  ) {
+    throw new Error("Complete the manual status for all 15 JEE numerical questions.");
+  }
 
   let correctAnswers = 0;
   let wrongAnswers = 0;
@@ -135,9 +168,17 @@ export async function saveOmrResult(
     else if (answer === test.answerKey[index]) correctAnswers += 1;
     else wrongAnswers += 1;
   });
+  const numericalCorrect = numericalAnswers?.filter((status) => status === "correct").length ?? 0;
+  const numericalWrong = numericalAnswers?.filter((status) => status === "wrong").length ?? 0;
+  const numericalUnattempted = numericalAnswers?.filter((status) => status === "blank").length ?? 0;
+  correctAnswers += numericalCorrect;
+  wrongAnswers += numericalWrong;
+  unattempted += numericalUnattempted;
   const positiveMarks = correctAnswers * test.marksPerCorrectAnswer;
   const negativeMarks = wrongAnswers * test.marksPerWrongAnswer;
   const marksObtained = positiveMarks - negativeMarks;
+  const totalQuestions = test.examType === "JEE" ? 75 : test.totalQuestions;
+  const maxMarks = totalQuestions * test.marksPerCorrectAnswer;
   const now = new Date().toISOString();
   const result = {
     testId: input.testId,
@@ -147,16 +188,20 @@ export async function saveOmrResult(
     testDate: test.testDate,
     batch: test.batch,
     examType: test.examType,
-    totalQuestions: test.totalQuestions,
-    maxMarks: test.maxMarks,
+    totalQuestions,
+    maxMarks,
     marksObtained,
     correctAnswers,
     wrongAnswers,
     unattempted,
     positiveMarks,
     negativeMarks,
-    percentage: Number(((marksObtained / test.maxMarks) * 100).toFixed(2)),
+    percentage: Number(((marksObtained / maxMarks) * 100).toFixed(2)),
     selectedAnswers: input.selectedAnswers,
+    numericalAnswers: numericalAnswers ?? [],
+    numericalCorrect,
+    numericalWrong,
+    numericalUnattempted,
     createdAt: now,
     updatedAt: now,
   };

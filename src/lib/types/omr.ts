@@ -1,4 +1,5 @@
-export type OmrExamType = "JEE" | "NEET";
+export type OmrExamType = "JEE" | "NEET" | "CUSTOM";
+export type OmrNumericalStatus = "correct" | "wrong" | "blank";
 
 export interface OmrTest {
   id: string;
@@ -7,7 +8,8 @@ export interface OmrTest {
   batch: string;
   examType: OmrExamType;
   totalQuestions: number;
-  choices: 4;
+  omrQuestions?: number;
+  choices: number;
   marksPerCorrectAnswer: number;
   marksPerWrongAnswer: number;
   maxMarks: number;
@@ -35,11 +37,15 @@ export interface OmrResult {
   negativeMarks: number;
   percentage: number;
   selectedAnswers: Array<number | null>;
+  numericalAnswers?: OmrNumericalStatus[];
+  numericalCorrect?: number;
+  numericalWrong?: number;
+  numericalUnattempted?: number;
   createdAt: string;
   updatedAt: string;
 }
 
-export function omrQuestionNumbers(examType: OmrExamType): number[] {
+export function omrQuestionNumbers(examType: OmrExamType, questionCount: number): number[] {
   if (examType === "JEE") {
     return [
       ...Array.from({ length: 20 }, (_, index) => index + 1),
@@ -47,5 +53,11 @@ export function omrQuestionNumbers(examType: OmrExamType): number[] {
       ...Array.from({ length: 20 }, (_, index) => index + 51),
     ];
   }
-  return Array.from({ length: 180 }, (_, index) => index + 1);
+  return Array.from({ length: questionCount }, (_, index) => index + 1);
 }
+
+export const JEE_NUMERICAL_QUESTIONS = [
+  ...Array.from({ length: 5 }, (_, index) => index + 21),
+  ...Array.from({ length: 5 }, (_, index) => index + 46),
+  ...Array.from({ length: 5 }, (_, index) => index + 71),
+];

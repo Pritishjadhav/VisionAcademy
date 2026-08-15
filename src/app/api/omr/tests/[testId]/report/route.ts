@@ -18,7 +18,13 @@ export async function GET(
   if (!testSnapshot.exists) {
     return Response.json({ success: false, error: "OMR test not found." }, { status: 404 });
   }
-  const test = { id: testSnapshot.id, ...testSnapshot.data() };
+  const test: Record<string, unknown> = { id: testSnapshot.id, ...testSnapshot.data() };
+  if (
+    test.examType === "JEE"
+    && typeof test.marksPerCorrectAnswer === "number"
+  ) {
+    test.maxMarks = 75 * test.marksPerCorrectAnswer;
+  }
   const results = resultsSnapshot.docs
     .map((document) => document.data())
     .sort((a, b) => Number(b.marksObtained) - Number(a.marksObtained));
