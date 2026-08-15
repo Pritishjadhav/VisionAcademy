@@ -1,4 +1,5 @@
-import { authorizeOmrRequest, omrBackendHeaders, omrBackendUrl } from "@/lib/server/omr-proxy";
+import { authorizeOmrRequest } from "@/lib/server/omr-auth";
+import { OmrEngineError, runOmrEngine } from "@/lib/server/omr-engine";
 
 export const runtime = "nodejs";
 
@@ -12,20 +13,38 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
-    const response = await fetch(omrBackendUrl("/grade"), {
-      method: "POST",
-      headers: omrBackendHeaders(),
-      body: await request.formData(),
-      cache: "no-store",
+    const form = await request.formData();
+    const file = form.get("file");
+    if (!(file instanceof File)) {
+      return Response.json({ success: false, error: "An OMR image is required." }, { status: 422 });
+    }
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      return Response.json(
+        { success: false, error: "Upload a JPEG, PNG, or WebP image." },
+        { status: 415 },
+      );
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      return Response.json({ success: false, error: "Upload is too large." }, { status: 413 });
+    }
+
+    const data = await runOmrEngine({
+      operation: "grade",
+      questions: Number(form.get("num_questions")),
+      choices: Number(form.get("num_choices")),
+      answer_key: String(form.get("answer_key") || ""),
+      image_base64: Buffer.from(await file.arrayBuffer()).toString("base64"),
     });
-    return new Response(response.body, {
-      status: response.status,
-      headers: { "Content-Type": response.headers.get("content-type") || "application/json" },
-    });
-  } catch {
+    return Response.json({ success: true, data });
+  } catch (error) {
+    const engineError = error instanceof OmrEngineError ? error : null;
     return Response.json(
-      { success: false, error: "The OMR service is unavailable. Start the backend and try again." },
-      { status: 503 },
+      {
+        success: false,
+        error: engineError?.message || "The OMR image could not be graded.",
+        code: engineError?.code || "OMR_ENGINE_ERROR",
+      },
+      { status: engineError?.statusCode || 500 },
     );
   }
 }

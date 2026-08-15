@@ -1,4 +1,5 @@
-import { authorizeOmrRequest, omrBackendHeaders, omrBackendUrl } from "@/lib/server/omr-proxy";
+import { authorizeOmrRequest } from "@/lib/server/omr-auth";
+import { OmrEngineError, runOmrEngine } from "@/lib/server/omr-engine";
 
 export const runtime = "nodejs";
 
@@ -7,30 +8,32 @@ export async function GET(request: Request): Promise<Response> {
   if (authorization instanceof Response) return authorization;
 
   const incoming = new URL(request.url);
-  const query = new URLSearchParams({
-    questions: incoming.searchParams.get("questions") || "20",
-    choices: incoming.searchParams.get("choices") || "4",
-    title: incoming.searchParams.get("title") || "Vision Academy - OMR Sheet",
-  });
+  const questions = Number(incoming.searchParams.get("questions") || "20");
+  const choices = Number(incoming.searchParams.get("choices") || "4");
+  const title = incoming.searchParams.get("title") || "Vision Academy - OMR Sheet";
 
   try {
-    const response = await fetch(omrBackendUrl(`/generate-omr?${query}`), {
-      headers: omrBackendHeaders(),
-      cache: "no-store",
+    const result = await runOmrEngine<{ pdf_base64: string }>({
+      operation: "generate",
+      questions,
+      choices,
+      title,
     });
-    return new Response(response.body, {
-      status: response.status,
+    return new Response(Buffer.from(result.pdf_base64, "base64"), {
       headers: {
-        "Content-Type": response.headers.get("content-type") || "application/json",
-        ...(response.ok
-          ? { "Content-Disposition": 'attachment; filename="vision-academy-omr.pdf"' }
-          : {}),
+        "Content-Type": "application/pdf",
+        "Content-Disposition": 'attachment; filename="vision-academy-omr.pdf"',
       },
     });
-  } catch {
+  } catch (error) {
+    const engineError = error instanceof OmrEngineError ? error : null;
     return Response.json(
-      { success: false, error: "The OMR service is unavailable. Start the backend and try again." },
-      { status: 503 },
+      {
+        success: false,
+        error: engineError?.message || "The OMR sheet could not be generated.",
+        code: engineError?.code || "OMR_ENGINE_ERROR",
+      },
+      { status: engineError?.statusCode || 500 },
     );
   }
 }

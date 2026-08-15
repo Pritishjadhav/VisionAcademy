@@ -1,8 +1,6 @@
 import { requireAdmin } from "@/lib/server/auth";
 import { checkRateLimit } from "@/lib/server/rate-limit";
 
-const OMR_API_URL = process.env.OMR_API_URL || "http://127.0.0.1:8000";
-
 export async function authorizeOmrRequest(
   request: Request,
   operation: "grade" | "generate",
@@ -23,13 +21,4 @@ export async function authorizeOmrRequest(
   } catch {
     return Response.json({ success: false, error: "Administrator authentication required." }, { status: 401 });
   }
-}
-
-export function omrBackendUrl(path: string): string {
-  return new URL(path, OMR_API_URL).toString();
-}
-
-export function omrBackendHeaders(): HeadersInit {
-  const key = process.env.OMR_INTERNAL_API_KEY;
-  return key ? { "X-Internal-API-Key": key } : {};
 }
