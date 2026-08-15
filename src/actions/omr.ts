@@ -1,9 +1,9 @@
 "use server";
 
 import { adminDb } from "@/lib/firebase/admin";
-import { requireAdmin } from "@/lib/server/auth";
+import { requireAdmin, requireUser } from "@/lib/server/auth";
 import { enforceRateLimit } from "@/lib/server/rate-limit";
-import { OmrExamType } from "@/lib/types/omr";
+import type { OmrExamType, OmrResult, OmrTest } from "@/lib/types/omr";
 
 const BATCHES = new Set([
   "11th IIT-JEE Integrated",
@@ -14,6 +14,52 @@ const BATCHES = new Set([
 
 function validateExamType(value: string): asserts value is OmrExamType {
   if (value !== "JEE" && value !== "NEET") throw new Error("Select JEE or NEET.");
+}
+
+export async function getOmrSetupData(idToken: string, batch: string) {
+  const actor = await requireAdmin(idToken);
+  enforceRateLimit(`action:get-omr-setup:${actor.uid}`, 120);
+  if (!BATCHES.has(batch)) throw new Error("Select a valid batch.");
+
+  const [testsSnapshot, studentsSnapshot] = await Promise.all([
+    adminDb.collection("omrTests").where("batch", "==", batch).get(),
+    adminDb.collection("students").where("batch", "==", batch).get(),
+  ]);
+  const tests = testsSnapshot.docs
+    .map((document) => ({ id: document.id, ...document.data() }) as OmrTest)
+    .sort((a, b) => b.testDate.localeCompare(a.testDate));
+  const students = studentsSnapshot.docs
+    .map((document) => ({
+      id: document.id,
+      name: String(document.data().name || "Student"),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  return { tests, students };
+}
+
+export async function getOmrResultsForStudent(idToken: string, studentId: string) {
+  const actor = await requireUser(idToken);
+  enforceRateLimit(`action:get-omr-results:${actor.uid}`, 120);
+  if (!studentId) throw new Error("Student is required.");
+
+  if (actor.role === "student" && actor.uid !== studentId) {
+    throw new Error("You cannot view another student's results.");
+  }
+  if (actor.role === "parent") {
+    const parentSnapshot = await adminDb.collection("parents").doc(actor.uid).get();
+    const studentIds = parentSnapshot.data()?.studentIds;
+    if (!Array.isArray(studentIds) || !studentIds.includes(studentId)) {
+      throw new Error("You cannot view this student's results.");
+    }
+  }
+  if (actor.role === "faculty") {
+    throw new Error("You cannot view student OMR results.");
+  }
+
+  const snapshot = await adminDb.collection("omrResults").where("studentId", "==", studentId).get();
+  return snapshot.docs
+    .map((document) => ({ id: document.id, ...document.data() }) as OmrResult)
+    .sort((a, b) => b.testDate.localeCompare(a.testDate));
 }
 
 export async function createOmrTest(
@@ -48,7 +94,7 @@ export async function createOmrTest(
     batch: input.batch,
     examType: input.examType,
     totalQuestions,
-    choices: 4,
+    choices: 4 as const,
     marksPerCorrectAnswer: input.marksPerCorrectAnswer,
     marksPerWrongAnswer: input.marksPerWrongAnswer,
     maxMarks: totalQuestions * input.marksPerCorrectAnswer,

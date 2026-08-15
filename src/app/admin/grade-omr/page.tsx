@@ -3,9 +3,7 @@
 import React, { use, useEffect, useState, useRef } from "react";
 import { Upload, FileImage, CheckCircle, AlertCircle, RefreshCw, FileText, Download, ListChecks, Settings, ChevronRight, ChevronLeft, Save } from "lucide-react";
 import { downloadOmrResultSheet, downloadOmrSheet, gradeOmrSheet, OmrGradeResult } from "@/lib/omr/client";
-import { collection, onSnapshot, query, where } from "firebase/firestore";
-import { db } from "@/lib/firebase/config";
-import { createOmrTest, saveOmrResult } from "@/actions/omr";
+import { createOmrTest, getOmrSetupData, saveOmrResult } from "@/actions/omr";
 import { getRequiredIdToken } from "@/lib/auth-token";
 import { OmrExamType, OmrTest, omrQuestionNumbers } from "@/lib/types/omr";
 import toast from "react-hot-toast";
@@ -58,25 +56,24 @@ export default function GradeOMRPage({
   const [genTitle, setGenTitle] = useState<string>("Vision Academy - OMR Sheet");
 
   useEffect(() => {
-    const testsQuery = query(collection(db, "omrTests"), where("batch", "==", batch));
-    const studentsQuery = query(collection(db, "students"), where("batch", "==", batch));
-    const unsubscribeTests = onSnapshot(testsQuery, (snapshot) => {
-      setOmrTests(
-        snapshot.docs
-          .map((document) => ({ id: document.id, ...document.data() }) as OmrTest)
-          .sort((a, b) => b.testDate.localeCompare(a.testDate)),
-      );
-    });
-    const unsubscribeStudents = onSnapshot(studentsQuery, (snapshot) => {
-      setStudents(
-        snapshot.docs
-          .map((document) => ({ id: document.id, name: String(document.data().name || "Student") }))
-          .sort((a, b) => a.name.localeCompare(b.name)),
-      );
-    });
+    let active = true;
+    async function loadSetupData() {
+      try {
+        const data = await getOmrSetupData(await getRequiredIdToken(), batch);
+        if (active) {
+          setOmrTests(data.tests);
+          setStudents(data.students);
+          setError(null);
+        }
+      } catch (loadError) {
+        if (active) {
+          setError(loadError instanceof Error ? loadError.message : "Could not load OMR tests and students.");
+        }
+      }
+    }
+    void loadSetupData();
     return () => {
-      unsubscribeTests();
-      unsubscribeStudents();
+      active = false;
     };
   }, [batch]);
 
@@ -153,6 +150,10 @@ export default function GradeOMRPage({
         marksPerWrongAnswer: marksWrong,
         answerKey: answers,
       });
+      setOmrTests((currentTests) => [
+        response.test,
+        ...currentTests.filter((test) => test.id !== response.test.id),
+      ]);
       setSelectedTestId(response.test.id);
       setStep('grade');
       setError(null);
