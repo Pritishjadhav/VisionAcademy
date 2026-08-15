@@ -1,16 +1,35 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { use, useEffect, useState, useRef } from "react";
 import { Upload, FileImage, CheckCircle, AlertCircle, RefreshCw, FileText, Download, ListChecks, Settings, ChevronRight, ChevronLeft, Save } from "lucide-react";
-import { downloadOmrSheet, gradeOmrSheet } from "@/lib/omr/client";
+import { downloadOmrResultSheet, downloadOmrSheet, gradeOmrSheet, OmrGradeResult } from "@/lib/omr/client";
+import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { db } from "@/lib/firebase/config";
+import { createOmrTest, saveOmrResult } from "@/actions/omr";
+import { getRequiredIdToken } from "@/lib/auth-token";
+import { OmrExamType, OmrTest, omrQuestionNumbers } from "@/lib/types/omr";
+import toast from "react-hot-toast";
+
+const BATCHES = [
+  "11th IIT-JEE Integrated",
+  "12th IIT-JEE Integrated",
+  "11th NEET Integrated",
+  "12th NEET Integrated",
+];
 
 type Step = 'setup' | 'set-answers' | 'grade';
 
-export default function GradeOMRPage() {
+export default function GradeOMRPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ batch?: string }>;
+}) {
+  const requestedBatch = use(searchParams).batch;
+  const initialBatch = requestedBatch && BATCHES.includes(requestedBatch) ? requestedBatch : BATCHES[0];
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<{ score: number; image: string } | null>(null);
+  const [result, setResult] = useState<(OmrGradeResult & { image: string }) | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -18,16 +37,48 @@ export default function GradeOMRPage() {
   const [step, setStep] = useState<Step>('setup');
 
   // Settings for grading
-  const [numQuestions, setNumQuestions] = useState<number>(20);
-  const [numChoices, setNumChoices] = useState<number>(4);
+  const [examType, setExamType] = useState<OmrExamType>(initialBatch.includes("NEET") ? "NEET" : "JEE");
+  const numQuestions = examType === "JEE" ? 60 : 180;
+  const numChoices = 4;
+  const [batch, setBatch] = useState(initialBatch);
+  const [testName, setTestName] = useState("");
+  const [testDate, setTestDate] = useState("");
+  const [marksCorrect, setMarksCorrect] = useState(4);
+  const [marksWrong, setMarksWrong] = useState(1);
+  const [omrTests, setOmrTests] = useState<OmrTest[]>([]);
+  const [selectedTestId, setSelectedTestId] = useState("");
+  const [students, setStudents] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedStudentId, setSelectedStudentId] = useState("");
+  const [savingResult, setSavingResult] = useState(false);
   
   // Array of answers (1-indexed). 0 means unset.
   const [answers, setAnswers] = useState<number[]>([]);
   
   // Settings for generating PDF
-  const [genNumQuestions, setGenNumQuestions] = useState<number>(20);
-  const [genNumChoices, setGenNumChoices] = useState<number>(4);
   const [genTitle, setGenTitle] = useState<string>("Vision Academy - OMR Sheet");
+
+  useEffect(() => {
+    const testsQuery = query(collection(db, "omrTests"), where("batch", "==", batch));
+    const studentsQuery = query(collection(db, "students"), where("batch", "==", batch));
+    const unsubscribeTests = onSnapshot(testsQuery, (snapshot) => {
+      setOmrTests(
+        snapshot.docs
+          .map((document) => ({ id: document.id, ...document.data() }) as OmrTest)
+          .sort((a, b) => b.testDate.localeCompare(a.testDate)),
+      );
+    });
+    const unsubscribeStudents = onSnapshot(studentsQuery, (snapshot) => {
+      setStudents(
+        snapshot.docs
+          .map((document) => ({ id: document.id, name: String(document.data().name || "Student") }))
+          .sort((a, b) => a.name.localeCompare(b.name)),
+      );
+    });
+    return () => {
+      unsubscribeTests();
+      unsubscribeStudents();
+    };
+  }, [batch]);
 
   const selectFile = (selectedFile: File) => {
     const allowedTypes = [
@@ -69,7 +120,7 @@ export default function GradeOMRPage() {
   const handleGeneratePdf = async () => {
     setError(null);
     try {
-      await downloadOmrSheet(genNumQuestions, genNumChoices, genTitle);
+      await downloadOmrSheet(numQuestions, numChoices, genTitle, examType);
     } catch (error) {
       setError(error instanceof Error ? error.message : "Failed to generate the OMR sheet.");
     }
@@ -83,13 +134,32 @@ export default function GradeOMRPage() {
     setError(null);
   };
 
-  const saveAnswerKey = () => {
+  const saveAnswerKey = async () => {
     if (answers.includes(0)) {
       setError("Please select an answer for all questions before proceeding.");
       return;
     }
-    setStep('grade');
-    setError(null);
+    if (!testName.trim() || !testDate) {
+      setError("Enter the test name and date before saving the answer key.");
+      return;
+    }
+    try {
+      const response = await createOmrTest(await getRequiredIdToken(), {
+        testName,
+        testDate,
+        batch,
+        examType,
+        marksPerCorrectAnswer: marksCorrect,
+        marksPerWrongAnswer: marksWrong,
+        answerKey: answers,
+      });
+      setSelectedTestId(response.test.id);
+      setStep('grade');
+      setError(null);
+      toast.success("OMR test created.");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Could not create the OMR test.");
+    }
   };
 
   const handleAnswerSelect = (qIndex: number, choiceIndex: number) => {
@@ -101,20 +171,56 @@ export default function GradeOMRPage() {
 
   const handleGrade = async () => {
     if (!file) return;
+    if (!selectedStudentId || !selectedTestId) {
+      setError("Select an OMR test and student before grading.");
+      return;
+    }
 
     setLoading(true);
     setError(null);
 
     try {
-      const data = await gradeOmrSheet(file, numQuestions, numChoices, answers);
+      const data = await gradeOmrSheet(file, numQuestions, numChoices, answers, examType);
       setResult({
-        score: data.score,
+        ...data,
         image: data.graded_image_base64,
       });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const selectExistingTest = (testId: string) => {
+    setSelectedTestId(testId);
+    const test = omrTests.find((item) => item.id === testId);
+    if (!test?.answerKey) return;
+    setExamType(test.examType);
+    setAnswers(test.answerKey);
+    setTestName(test.testName);
+    setTestDate(test.testDate);
+    setMarksCorrect(test.marksPerCorrectAnswer);
+    setMarksWrong(test.marksPerWrongAnswer);
+    setStep("grade");
+    setResult(null);
+  };
+
+  const handleSaveResult = async () => {
+    if (!result || !selectedStudentId || !selectedTestId) return;
+    setSavingResult(true);
+    try {
+      await saveOmrResult(await getRequiredIdToken(), {
+        testId: selectedTestId,
+        studentId: selectedStudentId,
+        selectedAnswers: result.selected_answers,
+      });
+      setError(null);
+      toast.success("Student OMR result saved.");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Could not save the OMR result.");
+    } finally {
+      setSavingResult(false);
     }
   };
 
@@ -148,11 +254,29 @@ export default function GradeOMRPage() {
               <FileText className="w-8 h-8 text-blue-600" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-800">Generate Custom OMR Sheet</h2>
-              <p className="text-sm text-gray-500">Create a blank PDF sheet for your students.</p>
+              <h2 className="text-xl font-bold text-gray-800">Generate Exam OMR Sheet</h2>
+              <p className="text-sm text-gray-500">
+                {examType === "JEE" ? "JEE: 60 MCQs with 15 numerical gaps" : "NEET: 180 MCQs"}
+              </p>
             </div>
           </div>
           <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto mt-4 sm:mt-0">
+            <div className="flex flex-col w-full sm:w-auto">
+              <label className="text-xs font-semibold text-gray-600 mb-1">Exam</label>
+              <select
+                value={examType}
+                onChange={(event) => {
+                  setExamType(event.target.value as OmrExamType);
+                  setAnswers([]);
+                  setSelectedTestId("");
+                  setResult(null);
+                }}
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+              >
+                <option value="JEE">JEE</option>
+                <option value="NEET">NEET</option>
+              </select>
+            </div>
             <div className="flex flex-col w-full sm:w-auto">
               <label className="text-xs font-semibold text-gray-600 mb-1">Custom Title</label>
               <input 
@@ -161,29 +285,6 @@ export default function GradeOMRPage() {
                 value={genTitle}
                 onChange={(e) => setGenTitle(e.target.value)}
                 placeholder="Institution Name..."
-              />
-            </div>
-            <div className="flex flex-col w-full sm:w-auto">
-              <label className="text-xs font-semibold text-gray-600 mb-1">Questions</label>
-              <input 
-                type="number"
-                min="1"
-                max="180"
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full sm:w-20"
-                value={genNumQuestions}
-                onChange={(e) => setGenNumQuestions(Number(e.target.value))}
-              />
-              <span className="text-xs text-gray-400 mt-1">Up to 180 questions on one OMR sheet</span>
-            </div>
-            <div className="flex flex-col w-full sm:w-auto">
-              <label className="text-xs font-semibold text-gray-600 mb-1">Options</label>
-              <input 
-                type="number"
-                min="2"
-                max="7"
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full sm:w-20"
-                value={genNumChoices}
-                onChange={(e) => setGenNumChoices(Number(e.target.value))}
               />
             </div>
             <button 
@@ -195,6 +296,26 @@ export default function GradeOMRPage() {
             </button>
           </div>
         </div>
+
+        {omrTests.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-8">
+            <h2 className="text-lg font-bold text-gray-800 mb-3">OMR Test Result Sheets</h2>
+            <div className="flex gap-3 overflow-x-auto pb-1">
+              {omrTests.map((test) => (
+                <div key={test.id} className="min-w-64 border border-gray-200 rounded-xl p-3">
+                  <p className="font-semibold text-gray-800 truncate">{test.testName}</p>
+                  <p className="text-xs text-gray-500 mt-1">{test.examType} · {test.testDate}</p>
+                  <button
+                    onClick={() => downloadOmrResultSheet(test.id).catch((error) => setError(error.message))}
+                    className="mt-3 w-full py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold"
+                  >
+                    Download Batch Results
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
           <div className="grid grid-cols-1 md:grid-cols-2">
@@ -235,29 +356,56 @@ export default function GradeOMRPage() {
                       <p className="text-gray-500 mt-2">Specify the parameters of the test you are about to grade.</p>
                     </div>
 
-                    <div className="space-y-6 max-w-sm mx-auto w-full">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Total Questions</label>
-                        <input 
-                          type="number"
-                          min="1"
-                          max="200"
-                          className="w-full border border-gray-300 rounded-xl px-4 py-3 text-lg focus:ring-2 focus:ring-blue-500 outline-none shadow-sm transition-all"
-                          value={numQuestions}
-                          onChange={(e) => setNumQuestions(Number(e.target.value))}
-                        />
+                    <div className="space-y-4 max-w-sm mx-auto w-full">
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          onClick={() => { setExamType("JEE"); setAnswers([]); }}
+                          className={`rounded-xl border p-3 font-bold ${examType === "JEE" ? "border-blue-500 bg-blue-50 text-blue-700" : "border-gray-200"}`}
+                        >
+                          JEE
+                          <span className="block text-xs font-normal mt-1">60 graded MCQs</span>
+                        </button>
+                        <button
+                          onClick={() => { setExamType("NEET"); setAnswers([]); }}
+                          className={`rounded-xl border p-3 font-bold ${examType === "NEET" ? "border-blue-500 bg-blue-50 text-blue-700" : "border-gray-200"}`}
+                        >
+                          NEET
+                          <span className="block text-xs font-normal mt-1">180 MCQs</span>
+                        </button>
                       </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Options per Question</label>
-                        <input 
-                          type="number"
-                          min="2"
-                          max="7"
-                          className="w-full border border-gray-300 rounded-xl px-4 py-3 text-lg focus:ring-2 focus:ring-blue-500 outline-none shadow-sm transition-all"
-                          value={numChoices}
-                          onChange={(e) => setNumChoices(Number(e.target.value))}
-                        />
+                      <select
+                        value={batch}
+                        onChange={(event) => {
+                          const nextBatch = event.target.value;
+                          setBatch(nextBatch);
+                          setExamType(nextBatch.includes("NEET") ? "NEET" : "JEE");
+                          setAnswers([]);
+                        }}
+                        className="w-full border border-gray-300 rounded-xl px-4 py-3"
+                      >
+                        {BATCHES.map((item) => <option key={item}>{item}</option>)}
+                      </select>
+                      <input value={testName} onChange={(event) => setTestName(event.target.value)} placeholder="Test name" className="w-full border border-gray-300 rounded-xl px-4 py-3" />
+                      <input type="date" value={testDate} onChange={(event) => setTestDate(event.target.value)} className="w-full border border-gray-300 rounded-xl px-4 py-3" />
+                      <div className="grid grid-cols-2 gap-3">
+                        <label className="text-xs font-semibold text-gray-600">
+                          Correct marks
+                          <input type="number" min="0.1" step="0.1" value={marksCorrect} onChange={(event) => setMarksCorrect(Number(event.target.value))} className="mt-1 w-full border border-gray-300 rounded-xl px-3 py-2 text-base" />
+                        </label>
+                        <label className="text-xs font-semibold text-gray-600">
+                          Wrong penalty
+                          <input type="number" min="0" step="0.1" value={marksWrong} onChange={(event) => setMarksWrong(Number(event.target.value))} className="mt-1 w-full border border-gray-300 rounded-xl px-3 py-2 text-base" />
+                        </label>
                       </div>
+                      {omrTests.length > 0 && (
+                        <label className="block text-xs font-semibold text-gray-600">
+                          Or check an existing test
+                          <select value={selectedTestId} onChange={(event) => selectExistingTest(event.target.value)} className="mt-1 w-full border border-gray-300 rounded-xl px-3 py-2 text-base">
+                            <option value="">Select test</option>
+                            {omrTests.map((test) => <option key={test.id} value={test.id}>{test.testName} ({test.testDate})</option>)}
+                          </select>
+                        </label>
+                      )}
 
                       <button 
                         onClick={startAnswerKeySetup}
@@ -289,9 +437,15 @@ export default function GradeOMRPage() {
 
                     <div className="flex-1 overflow-y-auto pr-2 rounded-xl border border-gray-200 bg-white shadow-inner p-4 custom-scrollbar">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
-                        {Array.from({ length: numQuestions }).map((_, qIndex) => (
-                          <div key={qIndex} className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 transition-colors">
-                            <span className="w-8 font-bold text-gray-700">{qIndex + 1}.</span>
+                        {omrQuestionNumbers(examType).map((questionNumber, qIndex) => (
+                          <React.Fragment key={questionNumber}>
+                          {examType === "JEE" && (qIndex === 20 || qIndex === 40) && (
+                            <div className="sm:col-span-2 py-2 text-center text-xs font-bold text-amber-700 bg-amber-50 rounded-lg">
+                              Skip numerical questions {qIndex === 20 ? "21–25" : "46–50"}
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 transition-colors">
+                            <span className="w-8 font-bold text-gray-700">{questionNumber}.</span>
                             <div className="flex gap-2">
                               {Array.from({ length: numChoices }).map((_, cIndex) => {
                                 const isSelected = answers[qIndex] === cIndex + 1;
@@ -312,7 +466,13 @@ export default function GradeOMRPage() {
                               })}
                             </div>
                           </div>
+                          </React.Fragment>
                         ))}
+                        {examType === "JEE" && (
+                          <div className="sm:col-span-2 py-2 text-center text-xs font-bold text-amber-700 bg-amber-50 rounded-lg">
+                            Skip numerical questions 71–75
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -341,9 +501,33 @@ export default function GradeOMRPage() {
                         <Upload className="w-6 h-6 mr-2 text-blue-600" />
                         Upload Student Sheet
                       </h2>
-                      <button onClick={() => setStep('set-answers')} className="text-sm text-gray-500 hover:text-gray-800 flex items-center transition-colors">
-                        <ChevronLeft className="w-4 h-4 mr-1" /> Edit Key
+                      <button
+                        onClick={() => {
+                          setStep("setup");
+                          setSelectedTestId("");
+                          setAnswers([]);
+                          setResult(null);
+                        }}
+                        className="text-sm text-gray-500 hover:text-gray-800 flex items-center transition-colors"
+                      >
+                        <ChevronLeft className="w-4 h-4 mr-1" /> New Test
                       </button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                      <label className="text-xs font-semibold text-gray-600">
+                        OMR Test
+                        <select value={selectedTestId} onChange={(event) => selectExistingTest(event.target.value)} className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                          <option value="">Select test</option>
+                          {omrTests.map((test) => <option key={test.id} value={test.id}>{test.testName}</option>)}
+                        </select>
+                      </label>
+                      <label className="text-xs font-semibold text-gray-600">
+                        Student
+                        <select value={selectedStudentId} onChange={(event) => setSelectedStudentId(event.target.value)} className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                          <option value="">Select student</option>
+                          {students.map((student) => <option key={student.id} value={student.id}>{student.name}</option>)}
+                        </select>
+                      </label>
                     </div>
                     
                     {!file ? (
@@ -444,10 +628,11 @@ export default function GradeOMRPage() {
                     <div className="flex flex-col h-full animate-in fade-in zoom-in duration-300">
                       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 mb-6 border border-blue-100 shadow-inner flex items-center justify-between shrink-0">
                         <div>
-                          <p className="text-sm font-semibold text-blue-800 uppercase tracking-wider">Final Score</p>
+                          <p className="text-sm font-semibold text-blue-800 uppercase tracking-wider">Final Marks</p>
                           <div className="flex items-baseline mt-1">
-                            <span className={`text-5xl font-black ${result.score >= 50 ? 'text-green-600' : 'text-red-600'}`}>
-                              {result.score.toFixed(0)}%
+                            <span className={`text-4xl font-black ${result.score >= 50 ? 'text-green-600' : 'text-red-600'}`}>
+                              {result.correct_count * marksCorrect - (result.selected_answers.filter((answer) => answer !== null).length - result.correct_count) * marksWrong}
+                              <span className="text-base text-gray-500"> / {numQuestions * marksCorrect}</span>
                             </span>
                           </div>
                         </div>
@@ -467,6 +652,13 @@ export default function GradeOMRPage() {
                             className="object-contain max-h-full max-w-full"
                           />
                         </div>
+                        <button
+                          onClick={handleSaveResult}
+                          disabled={savingResult}
+                          className="mt-3 w-full py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold disabled:opacity-50"
+                        >
+                          {savingResult ? "Saving..." : "Save Result for Student"}
+                        </button>
                       </div>
                     </div>
                   ) : null}

@@ -12,6 +12,18 @@ from app.omr.models import GradeResult
 MAX_IMAGE_DIMENSION = 6000
 WARP_WIDTH = 1000
 REFERENCE_GRID_WIDTH_POINTS = 533
+def _question_layout(questions: int, exam_type: str) -> tuple[int, int, list[int]]:
+    if exam_type == "JEE":
+        slots = [
+            *range(0, 20),
+            *range(25, 45),
+            *range(50, 70),
+        ]
+        return 3, 25, slots
+    columns = ceil(questions / 30)
+    return columns, min(30, questions), list(range(questions))
+
+
 
 
 def decode_image(content: bytes) -> np.ndarray:
@@ -197,18 +209,18 @@ def _cell_ink_counts(
     questions: int,
     choices: int,
     reference_layout: bool = False,
+    exam_type: str = "NEET",
 ) -> np.ndarray:
     height, width = threshold.shape
     counts = np.zeros((questions, choices), dtype=np.float32)
-    columns = ceil(questions / 30)
-    rows = min(30, questions)
+    columns, rows, slots = _question_layout(questions, exam_type)
     block_width = width / columns
     label_fraction = min(15 * columns / REFERENCE_GRID_WIDTH_POINTS, 0.18) if reference_layout else 0
     trailing_fraction = 5 * columns / REFERENCE_GRID_WIDTH_POINTS if reference_layout else 0
     header_height = round(height * 0.044) if reference_layout else 0
     answer_height = height - header_height
-    for question in range(questions):
-        question_column, row = divmod(question, 30)
+    for question, slot in enumerate(slots):
+        question_column, row = divmod(slot, rows)
         y1 = header_height + round(row * answer_height / rows)
         y2 = header_height + round((row + 1) * answer_height / rows)
         choices_left = (question_column + label_fraction) * block_width
@@ -227,18 +239,18 @@ def _cell_fill_ratios(
     questions: int,
     choices: int,
     reference_layout: bool = False,
+    exam_type: str = "NEET",
 ) -> np.ndarray:
     height, width = threshold.shape
     ratios = np.zeros((questions, choices), dtype=np.float32)
-    columns = ceil(questions / 30)
-    rows = min(30, questions)
+    columns, rows, slots = _question_layout(questions, exam_type)
     block_width = width / columns
     label_fraction = min(15 * columns / REFERENCE_GRID_WIDTH_POINTS, 0.18) if reference_layout else 0
     trailing_fraction = 5 * columns / REFERENCE_GRID_WIDTH_POINTS if reference_layout else 0
     header_height = round(height * 0.044) if reference_layout else 0
     answer_height = height - header_height
-    for question in range(questions):
-        question_column, row = divmod(question, 30)
+    for question, slot in enumerate(slots):
+        question_column, row = divmod(slot, rows)
         y1 = header_height + round(row * answer_height / rows)
         y2 = header_height + round((row + 1) * answer_height / rows)
         choices_left = (question_column + label_fraction) * block_width
@@ -255,7 +267,13 @@ def _cell_fill_ratios(
     return ratios
 
 
-def grade_image(image: np.ndarray, questions: int, choices: int, answer_key: list[int]) -> GradeResult:
+def grade_image(
+    image: np.ndarray,
+    questions: int,
+    choices: int,
+    answer_key: list[int],
+    exam_type: str = "NEET",
+) -> GradeResult:
     corners = _find_answer_area(image, questions)
     warped, _ = _warp_answer_area(image, corners, questions, choices)
     gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
@@ -265,8 +283,8 @@ def grade_image(image: np.ndarray, questions: int, choices: int, answer_key: lis
         questions > 30
         or cv2.countNonZero(top_band) / top_band.size < 0.1
     )
-    ink_counts = _cell_ink_counts(threshold, questions, choices, reference_layout)
-    fill_ratios = _cell_fill_ratios(threshold, questions, choices, reference_layout)
+    ink_counts = _cell_ink_counts(threshold, questions, choices, reference_layout, exam_type)
+    fill_ratios = _cell_fill_ratios(threshold, questions, choices, reference_layout, exam_type)
     median_fill = max(float(np.median(fill_ratios)), 0.001)
     maximum_fill = float(np.max(fill_ratios))
     sheet_has_marks = (
@@ -280,8 +298,7 @@ def grade_image(image: np.ndarray, questions: int, choices: int, answer_key: lis
     confidence: list[float] = []
     grading: list[bool] = []
     annotated = warped.copy()
-    layout_columns = ceil(questions / 30)
-    layout_rows = min(30, questions)
+    layout_columns, layout_rows, layout_slots = _question_layout(questions, exam_type)
     block_width = annotated.shape[1] / layout_columns
     label_fraction = (
         min(15 * layout_columns / REFERENCE_GRID_WIDTH_POINTS, 0.18)
@@ -340,7 +357,7 @@ def grade_image(image: np.ndarray, questions: int, choices: int, answer_key: lis
         correct = selected_answer == answer_key[row]
         grading.append(correct)
 
-        layout_column, layout_row = divmod(row, 30)
+        layout_column, layout_row = divmod(layout_slots[row], layout_rows)
         center_y = round(header_height + (layout_row + 0.5) * cell_height)
         choices_left = (layout_column + label_fraction) * block_width
         if selected_answer is not None:

@@ -7,7 +7,13 @@ import numpy as np
 import pytest
 
 from app.errors import OmrError
-from app.omr.processor import decode_document, decode_image, encode_jpeg_data_url, grade_image
+from app.omr.processor import (
+    _question_layout,
+    decode_document,
+    decode_image,
+    encode_jpeg_data_url,
+    grade_image,
+)
 from app.omr.sheet_generator import generate_sheet_pdf
 
 
@@ -188,3 +194,22 @@ def test_generated_20_question_sheet_has_no_false_marks() -> None:
     )
     result = grade_image(image, 20, 4, [1] * 20)
     assert result.selected_answers == [None] * 20
+
+
+def test_jee_question_layout_skips_numerical_slots() -> None:
+    columns, rows, slots = _question_layout(60, "JEE")
+    assert (columns, rows) == (3, 25)
+    assert [slot + 1 for slot in slots] == [
+        *range(1, 21),
+        *range(26, 46),
+        *range(51, 71),
+    ]
+
+
+def test_generated_jee_sheet_has_no_false_marks() -> None:
+    image = decode_document(
+        generate_sheet_pdf(60, 4, "JEE Mock Test", "JEE"),
+        "application/pdf",
+    )
+    result = grade_image(image, 60, 4, [1] * 60, "JEE")
+    assert result.selected_answers == [None] * 60

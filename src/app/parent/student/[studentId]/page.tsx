@@ -13,6 +13,7 @@ import {
 import Link from "next/link";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { format } from "date-fns";
+import { OmrResultsList } from "@/components/student/OmrResultsList";
 
 interface ExtendedTestResult extends TestResult {
   testDetails: Test;
@@ -97,9 +98,10 @@ export default function StudentDetailsPage() {
         });
         
         // Deduplicate by testId (keep the latest one)
-        const latestResults = new Map<string, any>();
+        const latestResults = new Map<string, TestResult>();
         for (const rDoc of sortedDocs) {
-          latestResults.set(rDoc.data().testId, { id: rDoc.id, ...rDoc.data() });
+          const resultData = rDoc.data() as TestResult;
+          latestResults.set(resultData.testId, { ...resultData, id: rDoc.id });
         }
         
         const extResults: ExtendedTestResult[] = [];
@@ -322,6 +324,7 @@ export default function StudentDetailsPage() {
 
       {activeTab === "tests" && (
         <div className="space-y-8">
+          <OmrResultsList studentId={studentId} />
           {results.length > 0 ? (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="lg:col-span-2 space-y-6">

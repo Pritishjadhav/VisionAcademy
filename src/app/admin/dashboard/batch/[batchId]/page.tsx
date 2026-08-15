@@ -149,6 +149,9 @@ export default function BatchPage({ params }: { params: Promise<{ batchId: strin
             <Button variant="outline" onClick={() => router.push(`/admin/dashboard/batch/${encodeURIComponent(batchName)}/theory`)}>
               Add Theory Mark
             </Button>
+            <Button variant="outline" onClick={() => router.push(`/admin/grade-omr?batch=${encodeURIComponent(batchName)}`)}>
+              OMR Checker
+            </Button>
             <Button variant="gradient" onClick={() => setIsAttendanceManagerOpen(true)}>
               Mark / Edit Attendance
             </Button>
