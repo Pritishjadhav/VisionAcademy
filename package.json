@@ -3,8 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/setup-omr.mjs",
     "dev": "next dev",
     "build": "next build",
+    "prestart": "node scripts/setup-omr.mjs",
     "start": "next start",
     "lint": "eslint"
   },
