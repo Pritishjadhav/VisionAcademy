@@ -9,6 +9,8 @@ import pytest
 from app.errors import OmrError
 from app.omr.processor import (
     _question_layout,
+    _order_points,
+    _warp_answer_area,
     decode_document,
     decode_image,
     encode_jpeg_data_url,
@@ -101,6 +103,17 @@ def test_perspective_photo_is_rectified_and_graded() -> None:
     result = grade_image(make_sheet(answers, 4, perspective=True), 5, 4, answers)
     assert result.selected_answers == answers
     assert result.score == 100
+
+
+def test_wide_upright_answer_area_is_not_rotated() -> None:
+    image = np.full((500, 800, 3), 255, dtype=np.uint8)
+    cv2.circle(image, (145, 145), 28, (0, 0, 0), cv2.FILLED)
+    corners = np.float32([[[100, 100]], [[700, 100]], [[700, 400]], [[100, 400]]])
+
+    warped, ordered = _warp_answer_area(image, corners, 40, 5)
+
+    assert np.array_equal(ordered, _order_points(corners))
+    assert warped[:250, :250].mean() < warped[-250:, :250].mean()
 
 
 @pytest.mark.parametrize(
