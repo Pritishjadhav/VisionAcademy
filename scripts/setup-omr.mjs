@@ -28,6 +28,15 @@ if (!existsSync(python)) {
   run(isWindows ? "py" : "python3", ["-m", "venv", venv], "Python environment setup");
 }
 
+run(
+  python,
+  [
+    "-c",
+    "import sys; raise SystemExit(0 if sys.version_info >= (3, 9) else 'VisionAcademy OMR requires Python 3.9 or newer.')",
+  ],
+  "Python version check",
+);
+
 const installedHash = existsSync(stamp) ? readFileSync(stamp, "utf8").trim() : "";
 if (installedHash !== requirementsHash) {
   console.log("[omr] Installing bundled OMR dependencies...");

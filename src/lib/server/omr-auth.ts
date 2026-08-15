@@ -9,7 +9,7 @@ export async function authorizeOmrRequest(
   const token = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
   try {
     const user = await requireAdmin(token);
-    const limit = operation === "grade" ? 12 : 8;
+    const limit = operation === "grade" ? 12 : 30;
     const result = checkRateLimit(`omr:${operation}:${user.uid}`, limit);
     if (!result.allowed) {
       return Response.json(
