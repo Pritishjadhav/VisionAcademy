@@ -34,6 +34,21 @@ def test_generates_pdf_without_http_service() -> None:
     assert pdf.startswith(b"%PDF")
 
 
+def test_generates_180_question_pdf_across_three_pages() -> None:
+    import fitz
+
+    code, response = run_cli(
+        {"operation": "generate", "questions": 180, "choices": 4, "title": "Final Exam"}
+    )
+    pdf = fitz.open(stream=base64.b64decode(response["data"]["pdf_base64"]), filetype="pdf")
+    assert code == 0
+    assert response["success"] is True
+    assert pdf.page_count == 3
+    assert "Questions 1-60" in pdf[0].get_text()
+    assert "Questions 61-120" in pdf[1].get_text()
+    assert "Questions 121-180" in pdf[2].get_text()
+
+
 def test_grades_image_without_http_service() -> None:
     success, encoded = cv2.imencode(".jpg", make_sheet([1, 3, 4, 2], 4))
     assert success

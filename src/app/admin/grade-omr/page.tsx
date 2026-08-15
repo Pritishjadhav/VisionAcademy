@@ -168,11 +168,12 @@ export default function GradeOMRPage() {
               <input 
                 type="number"
                 min="1"
-                max="200"
+                max="180"
                 className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full sm:w-20"
                 value={genNumQuestions}
                 onChange={(e) => setGenNumQuestions(Number(e.target.value))}
               />
+              <span className="text-xs text-gray-400 mt-1">Up to 180 questions, 60 per page</span>
             </div>
             <div className="flex flex-col w-full sm:w-auto">
               <label className="text-xs font-semibold text-gray-600 mb-1">Options</label>
