@@ -1,0 +1,1 @@
+"""Vision Academy OMR service."""

@@ -11,6 +11,7 @@ import { useSearchParams } from "next/navigation";
 import { Test } from "@/lib/types/test";
 import { format } from "date-fns";
 import { Suspense } from "react";
+import { getRequiredIdToken } from "@/lib/auth-token";
 
 function AdminTestsContent() {
   const [tests, setTests] = useState<Test[]>([]);
@@ -43,7 +44,7 @@ function AdminTestsContent() {
     
     try {
       const { deleteTest } = await import("@/actions/tests");
-      const result = await deleteTest(testId);
+      const result = await deleteTest(await getRequiredIdToken(), testId);
       if (result.success) {
         toast.success("Test completely deleted.");
       } else {

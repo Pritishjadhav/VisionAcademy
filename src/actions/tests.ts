@@ -1,9 +1,13 @@
 "use server";
 
 import { adminDb } from "@/lib/firebase/admin";
+import { enforceRateLimit } from "@/lib/server/rate-limit";
+import { requireAdmin } from "@/lib/server/auth";
 
-export async function deleteTest(testId: string) {
+export async function deleteTest(idToken: string, testId: string) {
   try {
+    const actor = await requireAdmin(idToken);
+    enforceRateLimit(`action:delete-test:${actor.uid}`, 8);
     const batch = adminDb.batch();
 
     // 1. Delete the test document

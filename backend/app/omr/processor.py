@@ -1,0 +1,221 @@
+import base64
+
+import cv2
+import numpy as np
+
+from app.errors import OmrError
+from app.omr.models import GradeResult
+
+MAX_IMAGE_DIMENSION = 6000
+WARP_WIDTH = 1000
+
+
+def decode_image(content: bytes) -> np.ndarray:
+    encoded = np.frombuffer(content, dtype=np.uint8)
+    image = cv2.imdecode(encoded, cv2.IMREAD_COLOR)
+    if image is None:
+        raise OmrError("The uploaded file is not a readable image.", code="INVALID_IMAGE", status_code=415)
+    if max(image.shape[:2]) > MAX_IMAGE_DIMENSION:
+        raise OmrError(
+            f"Image dimensions cannot exceed {MAX_IMAGE_DIMENSION}px.",
+            code="IMAGE_TOO_LARGE",
+            status_code=413,
+        )
+    return image
+
+
+def _order_points(points: np.ndarray) -> np.ndarray:
+    points = points.reshape(4, 2).astype(np.float32)
+    ordered = np.zeros((4, 2), dtype=np.float32)
+    coordinate_sum = points.sum(axis=1)
+    coordinate_diff = np.diff(points, axis=1).reshape(-1)
+    ordered[0] = points[np.argmin(coordinate_sum)]
+    ordered[2] = points[np.argmax(coordinate_sum)]
+    ordered[1] = points[np.argmin(coordinate_diff)]
+    ordered[3] = points[np.argmax(coordinate_diff)]
+    return ordered
+
+
+def _find_answer_area(image: np.ndarray) -> np.ndarray:
+    detection_image = image
+    scale = 1.0
+    if max(image.shape[:2]) > 1600:
+        scale = 1600 / max(image.shape[:2])
+        detection_image = cv2.resize(
+            image,
+            None,
+            fx=scale,
+            fy=scale,
+            # Linear interpolation preserves the thin printed rectangle better
+            # than area resampling on high-resolution phone photos.
+            interpolation=cv2.INTER_LINEAR,
+        )
+
+    gray = cv2.cvtColor(detection_image, cv2.COLOR_BGR2GRAY)
+    blurred = cv2.GaussianBlur(gray, (5, 5), 1)
+    # Low-contrast phone photos need a permissive edge threshold. The area
+    # and four-corner checks below filter the additional small contours.
+    edges = cv2.Canny(blurred, 10, 70)
+    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    minimum_area = detection_image.shape[0] * detection_image.shape[1] * 0.08
+
+    rectangles: list[tuple[float, np.ndarray]] = []
+    for contour in contours:
+        area = cv2.contourArea(contour)
+        if area < minimum_area:
+            continue
+        perimeter = cv2.arcLength(contour, True)
+        approximation = cv2.approxPolyDP(contour, 0.02 * perimeter, True)
+        if len(approximation) == 4:
+            rectangles.append((area, approximation))
+
+    if not rectangles:
+        raise OmrError(
+            "Could not find the rectangular answer area. Use a clear, straight photo with the full border visible.",
+            code="ANSWER_AREA_NOT_FOUND",
+        )
+    corners = max(rectangles, key=lambda item: item[0])[1].astype(np.float32)
+    return corners / scale
+
+
+def _warp_answer_area(image: np.ndarray, corners: np.ndarray, questions: int, choices: int) -> tuple[np.ndarray, np.ndarray]:
+    ordered = _order_points(corners)
+    top_width = np.linalg.norm(ordered[1] - ordered[0])
+    left_height = np.linalg.norm(ordered[3] - ordered[0])
+    if questions > choices and top_width > left_height:
+        # The photographed sheet is sideways. Rotate the source corners so the
+        # long question axis maps to the output height.
+        ordered = np.array([ordered[1], ordered[2], ordered[3], ordered[0]], dtype=np.float32)
+    # A square normalized grid matches the legacy scanner and keeps bubble
+    # outlines at a stable pixel thickness across different question counts.
+    target_height = WARP_WIDTH
+    destination = np.float32(
+        [[0, 0], [WARP_WIDTH - 1, 0], [WARP_WIDTH - 1, target_height - 1], [0, target_height - 1]]
+    )
+    matrix = cv2.getPerspectiveTransform(ordered, destination)
+    return cv2.warpPerspective(image, matrix, (WARP_WIDTH, target_height)), ordered
+
+
+def _cell_ink_counts(threshold: np.ndarray, questions: int, choices: int) -> np.ndarray:
+    height, width = threshold.shape
+    counts = np.zeros((questions, choices), dtype=np.float32)
+    for row in range(questions):
+        y1, y2 = round(row * height / questions), round((row + 1) * height / questions)
+        for column in range(choices):
+            x1, x2 = round(column * width / choices), round((column + 1) * width / choices)
+            cell = threshold[y1:y2, x1:x2]
+            if cell.size:
+                counts[row, column] = cv2.countNonZero(cell)
+    return counts
+
+
+def _cell_fill_ratios(threshold: np.ndarray, questions: int, choices: int) -> np.ndarray:
+    height, width = threshold.shape
+    ratios = np.zeros((questions, choices), dtype=np.float32)
+    for row in range(questions):
+        y1, y2 = round(row * height / questions), round((row + 1) * height / questions)
+        for column in range(choices):
+            x1, x2 = round(column * width / choices), round((column + 1) * width / choices)
+            cell = threshold[y1:y2, x1:x2]
+            margin_y = max(2, int(cell.shape[0] * 0.2))
+            margin_x = max(2, int(cell.shape[1] * 0.2))
+            core = cell[margin_y:-margin_y, margin_x:-margin_x]
+            if core.size:
+                ratios[row, column] = cv2.countNonZero(core) / core.size
+    return ratios
+
+
+def grade_image(image: np.ndarray, questions: int, choices: int, answer_key: list[int]) -> GradeResult:
+    corners = _find_answer_area(image)
+    warped, _ = _warp_answer_area(image, corners, questions, choices)
+    gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
+    threshold = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
+    ink_counts = _cell_ink_counts(threshold, questions, choices)
+    fill_ratios = _cell_fill_ratios(threshold, questions, choices)
+    median_fill = max(float(np.median(fill_ratios)), 0.001)
+    maximum_fill = float(np.max(fill_ratios))
+    sheet_has_marks = (
+        maximum_fill / median_fill >= 1.5
+        or (questions < 10 and maximum_fill >= 0.12)
+    )
+
+    selected: list[int | None] = []
+    confidence: list[float] = []
+    grading: list[bool] = []
+    annotated = warped.copy()
+    cell_height = annotated.shape[0] / questions
+    cell_width = annotated.shape[1] / choices
+
+    for row in range(questions):
+        core_ranked = np.argsort(fill_ratios[row])[::-1]
+        best_index = int(core_ranked[0])
+        best_core = float(fill_ratios[row, best_index])
+        second_core = float(fill_ratios[row, core_ranked[1]]) if choices > 1 else 0.0
+        core_separation = best_core - second_core
+        core_marked = best_core >= 0.08 and core_separation >= 0.025
+        core_ambiguous = (
+            choices > 2
+            and best_core >= 0.20
+            and second_core >= 0.20
+            and core_separation < 0.025
+        )
+
+        ink_ranked = np.argsort(ink_counts[row])[::-1]
+        ink_index = int(ink_ranked[0])
+        best_ink = float(ink_counts[row, ink_index])
+        second_ink = float(ink_counts[row, ink_ranked[1]]) if choices > 1 else 0.0
+        relative_strength = best_ink / max(second_ink, 1.0)
+        faint_marked = (
+            sheet_has_marks
+            and questions >= 10
+            and (
+                (not core_ambiguous and relative_strength >= 1.03)
+                or relative_strength >= 1.15
+            )
+        )
+
+        marked = sheet_has_marks and (core_marked or faint_marked)
+        if not core_marked and faint_marked:
+            best_index = ink_index
+        selected_answer = best_index + 1 if marked else None
+        selected.append(selected_answer)
+        signal_confidence = (
+            core_separation / 0.2
+            if core_marked
+            else (relative_strength - 1.0) / 0.5
+        )
+        confidence.append(
+            round(max(0.0, min(1.0, signal_confidence)), 3)
+            if marked
+            else 0.0
+        )
+        correct = selected_answer == answer_key[row]
+        grading.append(correct)
+
+        center_y = round((row + 0.5) * cell_height)
+        if selected_answer is not None:
+            center_x = round((selected_answer - 0.5) * cell_width)
+            cv2.circle(annotated, (center_x, center_y), 14, (0, 180, 0) if correct else (0, 0, 230), 4)
+        if not correct:
+            correct_x = round((answer_key[row] - 0.5) * cell_width)
+            cv2.circle(annotated, (correct_x, center_y), 10, (0, 180, 0), 3)
+
+    correct_count = sum(grading)
+    score = round((correct_count / questions) * 100, 2)
+    return GradeResult(
+        score=score,
+        correct_count=correct_count,
+        total_questions=questions,
+        selected_answers=selected,
+        grading=grading,
+        confidence=confidence,
+        annotated_image=annotated,
+    )
+
+
+def encode_jpeg_data_url(image: np.ndarray) -> str:
+    success, encoded = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, 90])
+    if not success:
+        raise OmrError("Could not encode the graded image.", code="ENCODING_FAILED", status_code=500)
+    payload = base64.b64encode(encoded.tobytes()).decode("ascii")
+    return f"data:image/jpeg;base64,{payload}"

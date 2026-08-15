@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, User, Phone, Mail, Calendar, GraduationCap } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import toast from "react-hot-toast";
+import { getRequiredIdToken } from "@/lib/auth-token";
 
 interface Student {
   id: string;
@@ -70,6 +71,7 @@ export function StudentFormModal({ isOpen, onClose, onSuccess, student }: Props)
 
     setLoading(true);
     try {
+      const idToken = await getRequiredIdToken();
       const formattedMobile = mobile.startsWith("+91") ? mobile : `+91${mobile}`;
       const formattedParentMobile = parentMobile 
         ? (parentMobile.startsWith("+91") ? parentMobile : `+91${parentMobile}`) 
@@ -96,13 +98,13 @@ export function StudentFormModal({ isOpen, onClose, onSuccess, student }: Props)
         
         // If parent mobile changed or was added, try to link/create the parent account
         if (formattedParentMobile && formattedParentMobile !== oldParentMobile) {
-          await linkParentAccount(student.id, name, formattedParentMobile);
+          await linkParentAccount(idToken, student.id, name, formattedParentMobile);
         }
         
         toast.success("Student updated successfully");
       } else {
         // Add new
-        const result = await createStudentUser({
+        const result = await createStudentUser(idToken, {
           name,
           mobile: formattedMobile,
           parentMobile: formattedParentMobile,

@@ -1,0 +1,1 @@
+"""OMR image processing package."""

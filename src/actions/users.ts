@@ -1,9 +1,15 @@
 "use server";
 
 import { adminAuth, adminDb } from "@/lib/firebase/admin";
+import { randomBytes } from "node:crypto";
+import { headers } from "next/headers";
+import { enforceRateLimit } from "@/lib/server/rate-limit";
+import { requireAdmin, requireSelfOrAdmin, requireSuperAdmin } from "@/lib/server/auth";
 
-export async function createStudentUser(data: { name: string, mobile: string, parentMobile: string, email?: string, gender?: string, dateOfBirth?: string, batch?: string }) {
+export async function createStudentUser(idToken: string, data: { name: string, mobile: string, parentMobile: string, email?: string, gender?: string, dateOfBirth?: string, batch?: string }) {
   try {
+    const actor = await requireAdmin(idToken);
+    enforceRateLimit(`action:create-student:${actor.uid}`, 10);
     // Generate synthetic email
     const cleanMobile = data.mobile.replace(/[^0-9]/g, '');
     const mobileWithoutCode = cleanMobile.startsWith('91') && cleanMobile.length > 10 ? cleanMobile.substring(2) : cleanMobile;
@@ -110,8 +116,10 @@ export async function createStudentUser(data: { name: string, mobile: string, pa
   }
 }
 
-export async function deleteStudentUser(uid: string) {
+export async function deleteStudentUser(idToken: string, uid: string) {
   try {
+    const actor = await requireAdmin(idToken);
+    enforceRateLimit(`action:delete-student:${actor.uid}`, 10);
     const studentDocRef = adminDb.collection("students").doc(uid);
     const studentDoc = await studentDocRef.get();
 
@@ -164,14 +172,16 @@ export async function deleteStudentUser(uid: string) {
   }
 }
 
-export async function createAdminUser(email: string) {
+export async function createAdminUser(idToken: string, email: string) {
   try {
+    const actor = await requireSuperAdmin(idToken);
+    enforceRateLimit(`action:create-admin:${actor.uid}`, 5);
+    const temporaryPassword = randomBytes(12).toString("base64url");
     let userRecord;
     try {
-      // Create auth user with email as both username and password
       userRecord = await adminAuth.createUser({
         email: email,
-        password: email, // Set password to exactly the email as requested
+        password: temporaryPassword,
         displayName: "Admin",
       });
     } catch (authError: unknown) {
@@ -182,24 +192,25 @@ export async function createAdminUser(email: string) {
     }
     
     // Create firestore document for admin with the SAME UID
-    // Give them 'super_admin' full access as requested
     await adminDb.collection("admins").doc(userRecord.uid).set({
       email: email,
-      role: "super_admin",
+      role: "admin",
       enabled: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
 
-    return { success: true, uid: userRecord.uid };
+    return { success: true, uid: userRecord.uid, temporaryPassword };
   } catch (error: unknown) {
     console.error("Error creating admin:", error);
     return { success: false, error: error instanceof Error ? error.message : "Failed to create admin on server" };
   }
 }
 
-export async function deleteAdminUser(uid: string) {
+export async function deleteAdminUser(idToken: string, uid: string) {
   try {
+    const actor = await requireSuperAdmin(idToken);
+    enforceRateLimit(`action:delete-admin:${actor.uid}`, 5);
     // Prevent deletion of master admin
     const adminDoc = await adminDb.collection("admins").doc(uid).get();
     if (adminDoc.exists && adminDoc.data()?.email === 'visionacademy7979@gmail.com') {
@@ -227,6 +238,13 @@ export async function deleteAdminUser(uid: string) {
 
 export async function checkUserExistsByMobile(mobile: string, type: 'student' | 'parent') {
   try {
+    const normalizedMobile = mobile.replace(/\D/g, "").slice(-10);
+    const requestHeaders = await headers();
+    const clientIp = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim()
+      || requestHeaders.get("x-real-ip")
+      || "unknown";
+    enforceRateLimit(`action:mobile-lookup-ip:${clientIp}`, 20, 5 * 60_000);
+    enforceRateLimit(`action:mobile-lookup:${type}:${normalizedMobile}`, 8, 5 * 60_000);
     const collectionName = type === 'student' ? 'students' : 'parents';
     const querySnapshot = await adminDb.collection(collectionName).where('mobile', '==', mobile).get();
     
@@ -252,10 +270,12 @@ export async function checkUserExistsByMobile(mobile: string, type: 'student' | 
   }
 }
 
-export async function linkParentAccount(studentUid: string, studentName: string, parentMobile: string) {
+export async function linkParentAccount(idToken: string, studentUid: string, studentName: string, parentMobile: string) {
   if (!parentMobile) return { success: false, error: "No parent mobile provided" };
   
   try {
+    const actor = await requireSelfOrAdmin(idToken, studentUid);
+    enforceRateLimit(`action:link-parent:${actor.uid}`, 5);
     const formattedParentMobile = parentMobile.startsWith('+91') ? parentMobile : `+91${parentMobile.replace(/[^0-9]/g, '')}`;
     const parentMobileWithoutCode = formattedParentMobile.replace('+91', '');
     const parentEmail = `${parentMobileWithoutCode}@visionacademy.com`;

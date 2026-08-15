@@ -1,0 +1,143 @@
+import base64
+
+import cv2
+import numpy as np
+import pytest
+
+from app.errors import OmrError
+from app.omr.processor import decode_image, encode_jpeg_data_url, grade_image
+
+
+def make_sheet(
+    answers: list[int | None | tuple[int, int]],
+    choices: int,
+    *,
+    perspective: bool = False,
+) -> np.ndarray:
+    questions = len(answers)
+    width, height = 800, 800
+    image = np.full((height, width, 3), 255, dtype=np.uint8)
+    left, top, right, bottom = 80, 60, 720, 740
+    cv2.rectangle(image, (left, top), (right, bottom), (0, 0, 0), 5)
+    cell_width = (right - left) / choices
+    cell_height = (bottom - top) / questions
+
+    for row, answer in enumerate(answers):
+        for column in range(choices):
+            center = (
+                round(left + (column + 0.5) * cell_width),
+                round(top + (row + 0.5) * cell_height),
+            )
+            cv2.circle(image, center, 24, (0, 0, 0), 3)
+        marked_answers = answer if isinstance(answer, tuple) else (() if answer is None else (answer,))
+        for marked_answer in marked_answers:
+            selected_center = (
+                round(left + (marked_answer - 0.5) * cell_width),
+                round(top + (row + 0.5) * cell_height),
+            )
+            cv2.circle(image, selected_center, 20, (0, 0, 0), cv2.FILLED)
+
+    if perspective:
+        source = np.float32([[0, 0], [width - 1, 0], [width - 1, height - 1], [0, height - 1]])
+        destination = np.float32([[45, 25], [755, 70], [785, 760], [20, 790]])
+        matrix = cv2.getPerspectiveTransform(source, destination)
+        image = cv2.warpPerspective(image, matrix, (width, height), borderValue=(255, 255, 255))
+    return image
+
+
+def test_grades_a_clear_sheet() -> None:
+    answers = [1, 3, 4, 2]
+    result = grade_image(make_sheet(answers, 4), 4, 4, answers)
+    assert result.score == 100
+    assert result.selected_answers == answers
+    assert result.correct_count == 4
+
+
+def test_calculates_partial_score_and_wrong_answers() -> None:
+    answer_key = [1, 2, 3, 4]
+    marked_answers = [1, 4, 3, 1]
+    result = grade_image(make_sheet(marked_answers, 4), 4, 4, answer_key)
+    assert result.score == 50
+    assert result.correct_count == 2
+    assert result.grading == [True, False, True, False]
+    assert result.selected_answers == marked_answers
+
+
+def test_unanswered_rows_are_not_guessed() -> None:
+    answer_key = [1, 2, 3, 4]
+    result = grade_image(make_sheet([1, None, 3, None], 4), 4, 4, answer_key)
+    assert result.selected_answers == [1, None, 3, None]
+    assert result.score == 50
+    assert result.confidence[1] == 0
+    assert result.confidence[3] == 0
+
+
+def test_completely_blank_sheet_has_no_selected_answers() -> None:
+    result = grade_image(make_sheet([None, None, None, None], 4), 4, 4, [1, 2, 3, 4])
+    assert result.selected_answers == [None, None, None, None]
+    assert result.correct_count == 0
+    assert result.score == 0
+
+
+def test_multiple_marks_are_treated_as_ambiguous() -> None:
+    answer_key = [1, 2, 3, 4]
+    result = grade_image(make_sheet([1, (2, 4), 3, 4], 4), 4, 4, answer_key)
+    assert result.selected_answers[1] is None
+    assert result.correct_count == 3
+    assert result.score == 75
+
+
+def test_perspective_photo_is_rectified_and_graded() -> None:
+    answers = [4, 1, 3, 2, 2]
+    result = grade_image(make_sheet(answers, 4, perspective=True), 5, 4, answers)
+    assert result.selected_answers == answers
+    assert result.score == 100
+
+
+@pytest.mark.parametrize(
+    ("answers", "choices"),
+    [
+        ([1, 2, 3, 4, 5], 5),
+        ([2, 1, 2, 1, 2, 1], 2),
+        ([7, 1, 4], 7),
+    ],
+)
+def test_supports_configured_choice_counts(answers: list[int], choices: int) -> None:
+    result = grade_image(make_sheet(answers, choices), len(answers), choices, answers)
+    assert result.selected_answers == answers
+    assert result.score == 100
+
+
+def test_graded_output_has_expected_shape() -> None:
+    answers = [1, 2, 3, 4]
+    result = grade_image(make_sheet(answers, 4), 4, 4, answers)
+    assert result.annotated_image.shape[1] == 1000
+    assert result.annotated_image.shape[0] >= 600
+    assert result.annotated_image.dtype == np.uint8
+
+
+def test_blank_image_reports_missing_answer_area() -> None:
+    blank = np.full((600, 600, 3), 255, dtype=np.uint8)
+    with pytest.raises(OmrError) as error:
+        grade_image(blank, 4, 4, [1, 2, 3, 4])
+    assert error.value.code == "ANSWER_AREA_NOT_FOUND"
+
+
+def test_decode_and_output_encoding_round_trip() -> None:
+    source = make_sheet([1, 2], 4)
+    success, encoded = cv2.imencode(".png", source)
+    assert success
+    decoded = decode_image(encoded.tobytes())
+    assert decoded.shape == source.shape
+
+    data_url = encode_jpeg_data_url(decoded)
+    prefix, payload = data_url.split(",", 1)
+    assert prefix == "data:image/jpeg;base64"
+    jpeg = base64.b64decode(payload)
+    assert cv2.imdecode(np.frombuffer(jpeg, np.uint8), cv2.IMREAD_COLOR) is not None
+
+
+def test_decode_rejects_corrupt_image() -> None:
+    with pytest.raises(OmrError) as error:
+        decode_image(b"not an image")
+    assert error.value.code == "INVALID_IMAGE"
