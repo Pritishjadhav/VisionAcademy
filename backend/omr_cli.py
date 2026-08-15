@@ -4,7 +4,7 @@ import json
 import sys
 
 from app.errors import OmrError
-from app.omr.processor import decode_image, encode_jpeg_data_url, grade_image
+from app.omr.processor import decode_document, encode_jpeg_data_url, grade_image
 from app.omr.sheet_generator import generate_sheet_pdf
 from app.omr.validation import parse_answer_key, validate_layout
 
@@ -15,7 +15,12 @@ def grade(payload: dict[str, object]) -> dict[str, object]:
     validate_layout(questions, choices)
     answers = parse_answer_key(str(payload["answer_key"]), questions, choices)
     content = base64.b64decode(str(payload["image_base64"]), validate=True)
-    result = grade_image(decode_image(content), questions, choices, answers)
+    result = grade_image(
+        decode_document(content, str(payload.get("media_type", ""))),
+        questions,
+        choices,
+        answers,
+    )
     return {
         "score": result.score,
         "correct_count": result.correct_count,

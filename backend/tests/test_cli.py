@@ -34,6 +34,23 @@ def test_generates_pdf_without_http_service() -> None:
     assert pdf.startswith(b"%PDF")
 
 
+def test_generates_180_question_pdf_in_reference_layout() -> None:
+    import fitz
+
+    code, response = run_cli(
+        {"operation": "generate", "questions": 180, "choices": 4, "title": "Final Exam"}
+    )
+    pdf = fitz.open(stream=base64.b64decode(response["data"]["pdf_base64"]), filetype="pdf")
+    assert code == 0
+    assert response["success"] is True
+    assert pdf.page_count == 1
+    text = pdf[0].get_text()
+    assert "OMR ANSWER SHEET" in text
+    assert "ROLL NO." in text
+    assert "TEST ID" in text
+    assert "180" in text
+
+
 def test_grades_image_without_http_service() -> None:
     success, encoded = cv2.imencode(".jpg", make_sheet([1, 3, 4, 2], 4))
     assert success
@@ -44,6 +61,29 @@ def test_grades_image_without_http_service() -> None:
             "choices": 4,
             "answer_key": "1,3,4,2",
             "image_base64": base64.b64encode(encoded.tobytes()).decode("ascii"),
+        }
+    )
+    assert code == 0
+    assert response["success"] is True
+    assert response["data"]["score"] == 100
+
+
+def test_grades_pdf_without_http_service() -> None:
+    import fitz
+
+    success, encoded = cv2.imencode(".png", make_sheet([1, 3, 4, 2], 4))
+    assert success
+    document = fitz.open()
+    page = document.new_page(width=800, height=800)
+    page.insert_image(page.rect, stream=encoded.tobytes())
+    code, response = run_cli(
+        {
+            "operation": "grade",
+            "questions": 4,
+            "choices": 4,
+            "answer_key": "1,3,4,2",
+            "image_base64": base64.b64encode(document.tobytes()).decode("ascii"),
+            "media_type": "application/pdf",
         }
     )
     assert code == 0
