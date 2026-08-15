@@ -11,6 +11,7 @@ export async function GET(request: Request): Promise<Response> {
   const questions = Number(incoming.searchParams.get("questions") || "20");
   const choices = Number(incoming.searchParams.get("choices") || "4");
   const title = incoming.searchParams.get("title") || "Vision Academy - OMR Sheet";
+  const examType = incoming.searchParams.get("examType") === "JEE" ? "JEE" : "NEET";
 
   try {
     const result = await runOmrEngine<{ pdf_base64: string }>({
@@ -18,6 +19,7 @@ export async function GET(request: Request): Promise<Response> {
       questions,
       choices,
       title,
+      exam_type: examType,
     });
     return new Response(Buffer.from(result.pdf_base64, "base64"), {
       headers: {

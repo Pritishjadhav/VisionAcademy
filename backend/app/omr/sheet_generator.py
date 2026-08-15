@@ -108,11 +108,13 @@ def _draw_answer_grid(
     height: float,
     questions: int,
     choices: int,
+    exam_type: str = "NEET",
 ) -> None:
     left, right = 31, width - 31
     bottom, top = 48, height - 294
-    columns = ceil(questions / QUESTIONS_PER_COLUMN)
-    rows = min(QUESTIONS_PER_COLUMN, questions)
+    is_jee = exam_type == "JEE"
+    columns = 3 if is_jee else ceil(questions / QUESTIONS_PER_COLUMN)
+    rows = 25 if is_jee else min(QUESTIONS_PER_COLUMN, questions)
     block_width = (right - left) / columns
     row_height = (top - bottom - 18) / rows
     label_width = min(15, block_width * 0.18)
@@ -134,12 +136,16 @@ def _draw_answer_grid(
             pdf.drawCentredString(x, top - 11, chr(65 + choice))
 
         for row in range(rows):
-            question = column * QUESTIONS_PER_COLUMN + row + 1
-            if question > questions:
+            question = column * (25 if is_jee else QUESTIONS_PER_COLUMN) + row + 1
+            if not is_jee and question > questions:
                 break
             y = top - 22 - row * row_height
             pdf.setFont("Helvetica-Bold", 4.8)
             pdf.drawRightString(bubbles_left - 2, y - 1.5, str(question))
+            if is_jee and row >= 20:
+                pdf.setFont("Helvetica", 4)
+                pdf.drawString(bubbles_left + 4, y - 1.5, "NUMERICAL  __________")
+                continue
             for choice in range(choices):
                 x = bubbles_left + (choice + 0.5) * choice_width
                 _bubble(pdf, x, y, radius)
@@ -150,7 +156,12 @@ def _draw_answer_grid(
     pdf.setFillColorRGB(0, 0, 0)
 
 
-def generate_sheet_pdf(questions: int, choices: int, title: str) -> bytes:
+def generate_sheet_pdf(
+    questions: int,
+    choices: int,
+    title: str,
+    exam_type: str = "NEET",
+) -> bytes:
     clean_title = " ".join(title.split()).strip()[:100] or "Vision Academy"
     if questions > MAX_PRINTABLE_QUESTIONS:
         raise OmrError(
@@ -165,7 +176,7 @@ def generate_sheet_pdf(questions: int, choices: int, title: str) -> bytes:
     _draw_registration_marks(pdf, width, height)
     _draw_header(pdf, width, height, clean_title)
     _draw_candidate_panel(pdf, width, height)
-    _draw_answer_grid(pdf, width, height, questions, choices)
+    _draw_answer_grid(pdf, width, height, questions, choices, exam_type)
     pdf.showPage()
     pdf.save()
     return output.getvalue()

@@ -51,6 +51,29 @@ def test_generates_180_question_pdf_in_reference_layout() -> None:
     assert "180" in text
 
 
+def test_generates_jee_sheet_with_numerical_gaps() -> None:
+    import fitz
+
+    code, response = run_cli(
+        {
+            "operation": "generate",
+            "questions": 60,
+            "choices": 4,
+            "title": "JEE Mock Test",
+            "exam_type": "JEE",
+        }
+    )
+    pdf = fitz.open(stream=base64.b64decode(response["data"]["pdf_base64"]), filetype="pdf")
+    text = pdf[0].get_text()
+    assert code == 0
+    assert text.count("NUMERICAL") == 15
+    assert "20" in text
+    assert "25" in text
+    assert "45" in text
+    assert "70" in text
+    assert "75" in text
+
+
 def test_grades_image_without_http_service() -> None:
     success, encoded = cv2.imencode(".jpg", make_sheet([1, 3, 4, 2], 4))
     assert success
@@ -102,3 +125,32 @@ def test_returns_structured_validation_error() -> None:
         "code": "INVALID_QUESTIONS",
         "status_code": 422,
     }
+
+
+def test_generates_batch_result_sheet() -> None:
+    code, response = run_cli(
+        {
+            "operation": "report",
+            "test": {
+                "testName": "JEE Mock",
+                "batch": "12th IIT-JEE Integrated",
+                "testDate": "2026-08-15",
+                "examType": "JEE",
+                "maxMarks": 240,
+            },
+            "results": [
+                {
+                    "studentName": "Sample Student",
+                    "marksObtained": 180,
+                    "correctAnswers": 46,
+                    "wrongAnswers": 4,
+                    "unattempted": 10,
+                    "percentage": 75,
+                }
+            ],
+        }
+    )
+    pdf = base64.b64decode(response["data"]["pdf_base64"])
+    assert code == 0
+    assert response["success"] is True
+    assert pdf.startswith(b"%PDF")

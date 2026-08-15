@@ -1,4 +1,5 @@
 import { getRequiredIdToken } from "@/lib/auth-token";
+import { OmrExamType } from "@/lib/types/omr";
 
 export type OmrGradeResult = {
   score: number;
@@ -19,6 +20,7 @@ export async function gradeOmrSheet(
   numQuestions: number,
   numChoices: number,
   answers: number[],
+  examType: OmrExamType,
 ): Promise<OmrGradeResult> {
   const token = await getRequiredIdToken();
   const formData = new FormData();
@@ -26,6 +28,7 @@ export async function gradeOmrSheet(
   formData.append("num_questions", String(numQuestions));
   formData.append("num_choices", String(numChoices));
   formData.append("answer_key", answers.join(","));
+  formData.append("exam_type", examType);
 
   const response = await fetch("/api/omr/grade", {
     method: "POST",
@@ -41,12 +44,14 @@ export async function downloadOmrSheet(
   questions: number,
   choices: number,
   title: string,
+  examType: OmrExamType,
 ): Promise<void> {
   const token = await getRequiredIdToken();
   const query = new URLSearchParams({
     questions: String(questions),
     choices: String(choices),
     title,
+    examType,
   });
   const response = await fetch(`/api/omr/generate?${query}`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -57,6 +62,20 @@ export async function downloadOmrSheet(
   const anchor = document.createElement("a");
   anchor.href = url;
   anchor.download = "vision-academy-omr.pdf";
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+export async function downloadOmrResultSheet(testId: string): Promise<void> {
+  const token = await getRequiredIdToken();
+  const response = await fetch(`/api/omr/tests/${encodeURIComponent(testId)}/report`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) throw new Error(await readApiError(response));
+  const url = URL.createObjectURL(await response.blob());
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = "omr-test-results.pdf";
   anchor.click();
   URL.revokeObjectURL(url);
 }

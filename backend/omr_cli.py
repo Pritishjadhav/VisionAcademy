@@ -5,6 +5,7 @@ import sys
 
 from app.errors import OmrError
 from app.omr.processor import decode_document, encode_jpeg_data_url, grade_image
+from app.omr.result_sheet import generate_result_sheet_pdf
 from app.omr.sheet_generator import generate_sheet_pdf
 from app.omr.validation import parse_answer_key, validate_layout
 
@@ -20,6 +21,7 @@ def grade(payload: dict[str, object]) -> dict[str, object]:
         questions,
         choices,
         answers,
+        str(payload.get("exam_type", "NEET")),
     )
     return {
         "score": result.score,
@@ -35,7 +37,20 @@ def generate(payload: dict[str, object]) -> dict[str, str]:
     questions = int(payload["questions"])
     choices = int(payload["choices"])
     validate_layout(questions, choices)
-    pdf = generate_sheet_pdf(questions, choices, str(payload["title"]))
+    pdf = generate_sheet_pdf(
+        questions,
+        choices,
+        str(payload["title"]),
+        str(payload.get("exam_type", "NEET")),
+    )
+    return {"pdf_base64": base64.b64encode(pdf).decode("ascii")}
+
+
+def generate_report(payload: dict[str, object]) -> dict[str, str]:
+    pdf = generate_result_sheet_pdf(
+        dict(payload["test"]),
+        list(payload["results"]),
+    )
     return {"pdf_base64": base64.b64encode(pdf).decode("ascii")}
 
 
@@ -49,6 +64,8 @@ def main() -> None:
             data = generate(request)
         elif operation == "health":
             data = {"ready": True}
+        elif operation == "report":
+            data = generate_report(request)
         else:
             raise OmrError("Unsupported OMR operation.", code="INVALID_OPERATION")
         json.dump({"success": True, "data": data}, sys.stdout, separators=(",", ":"))

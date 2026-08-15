@@ -48,6 +48,7 @@ export async function POST(request: Request): Promise<Response> {
       answer_key: String(form.get("answer_key") || ""),
       image_base64: Buffer.from(await file.arrayBuffer()).toString("base64"),
       media_type: file.type,
+      exam_type: String(form.get("exam_type") || "NEET"),
     });
     return Response.json({ success: true, data });
   } catch (error) {

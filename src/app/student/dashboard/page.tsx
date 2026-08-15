@@ -11,6 +11,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { StudentAttendanceHistoryModal } from "@/components/admin/StudentAttendanceHistoryModal";
 import { StudentFeesHistoryModal } from "@/components/student/StudentFeesHistoryModal";
 import { FeePayment } from "@/components/admin/FeePaymentModal";
+import { OmrResultsList } from "@/components/student/OmrResultsList";
 
 export default function StudentDashboard() {
   const { user, role, loading, dbUser } = useAuth();
@@ -269,6 +270,7 @@ export default function StudentDashboard() {
           </div>
         </div>
       </div>
+      <OmrResultsList studentId={user.uid} />
       <StudentAttendanceHistoryModal
         isOpen={isHistoryModalOpen}
         onClose={() => setIsHistoryModalOpen(false)}
