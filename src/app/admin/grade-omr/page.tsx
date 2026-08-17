@@ -1,7 +1,7 @@
 "use client";
 
 import React, { use, useEffect, useState, useRef } from "react";
-import { Upload, FileImage, CheckCircle, AlertCircle, RefreshCw, FileText, Download, ListChecks, Settings, ChevronRight, ChevronLeft, Save, ChevronDown, Trash2 } from "lucide-react";
+import { Upload, FileImage, CheckCircle, AlertCircle, RefreshCw, FileText, Download, ListChecks, Settings, ChevronRight, ChevronLeft, Save, ChevronDown, Trash2, Camera } from "lucide-react";
 import { downloadOmrResultSheet, downloadOmrSheet, gradeOmrSheet, OmrGradeResult } from "@/lib/omr/client";
 import { createOmrTest, getOmrSetupData, saveOmrResult, deleteOmrTest } from "@/actions/omr";
 import { getRequiredIdToken } from "@/lib/auth-token";
@@ -98,6 +98,7 @@ export default function GradeOMRPage({
   const [result, setResult] = useState<(OmrGradeResult & { image: string }) | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   // Workflow state
   const [step, setStep] = useState<Step>('setup');
@@ -329,6 +330,9 @@ export default function GradeOMRPage({
     setError(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
+    }
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = "";
     }
   };
 
@@ -758,22 +762,45 @@ export default function GradeOMRPage({
                     </div>
 
                     {!file ? (
-                      <div
-                        onDragOver={handleDragOver}
-                        onDrop={handleDrop}
-                        onClick={() => fileInputRef.current?.click()}
-                        className="border-2 border-dashed border-gray-300 rounded-xl p-12 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 group flex-1 flex flex-col items-center justify-center"
-                      >
-                        <FileImage className="w-16 h-16 mx-auto text-gray-400 group-hover:text-blue-500 mb-4 transition-colors" />
-                        <p className="text-gray-600 font-medium">Click or drag the student&apos;s filled sheet</p>
-                        <p className="text-sm text-gray-400 mt-2">Supports PDF, JPEG, PNG, WebP, TIFF, and BMP</p>
-                        <input
-                          type="file"
-                          accept=".pdf,.jpg,.jpeg,.png,.webp,.tif,.tiff,.bmp,application/pdf,image/jpeg,image/png,image/webp,image/tiff,image/bmp"
-                          ref={fileInputRef}
-                          onChange={handleFileChange}
-                          className="hidden"
-                        />
+                      <div className="flex flex-col sm:flex-row gap-4 h-full">
+                        <div
+                          onDragOver={handleDragOver}
+                          onDrop={handleDrop}
+                          onClick={() => fileInputRef.current?.click()}
+                          className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 group flex-1 flex flex-col items-center justify-center min-h-[250px]"
+                        >
+                          <FileImage className="w-12 h-12 mx-auto text-gray-400 group-hover:text-blue-500 mb-3 transition-colors" />
+                          <p className="text-gray-600 font-medium">Upload File</p>
+                          <p className="text-xs text-gray-400 mt-2 px-4">Click or drag a PDF/Image</p>
+                          <input
+                            type="file"
+                            accept=".pdf,.jpg,.jpeg,.png,.webp,.tif,.tiff,.bmp,application/pdf,image/jpeg,image/png,image/webp,image/tiff,image/bmp"
+                            ref={fileInputRef}
+                            onChange={handleFileChange}
+                            className="hidden"
+                          />
+                        </div>
+                        
+                        <div className="flex items-center justify-center">
+                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-white px-2">or</span>
+                        </div>
+                        
+                        <div
+                          onClick={() => cameraInputRef.current?.click()}
+                          className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-green-500 hover:bg-green-50 transition-all duration-200 group flex-1 flex flex-col items-center justify-center min-h-[250px]"
+                        >
+                          <Camera className="w-12 h-12 mx-auto text-gray-400 group-hover:text-green-500 mb-3 transition-colors" />
+                          <p className="text-gray-600 font-medium">Take Photo</p>
+                          <p className="text-xs text-gray-400 mt-2 px-4">Use device camera</p>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            ref={cameraInputRef}
+                            onChange={handleFileChange}
+                            className="hidden"
+                          />
+                        </div>
                       </div>
                     ) : (
                       <div className="flex flex-col h-full">

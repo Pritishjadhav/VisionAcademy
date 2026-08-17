@@ -249,6 +249,41 @@ export default function BatchScoresPage({ params }: { params: Promise<{ batchId:
     }
   };
 
+  const handleDownloadCsv = () => {
+    if (!selectedTest) return;
+
+    let csvContent = "S.No,Student Name,Mobile Number,Marks Obtained,Percentage\n";
+    
+    students.forEach((student, index) => {
+      let mark = undefined;
+      if (selectedTest.type === "theory") {
+        mark = theoryMarksMap[student.id]?.[selectedTest.id];
+      } else if (selectedTest.type === "omr") {
+        mark = omrResultsMap[student.id]?.[selectedTest.id];
+      } else {
+        mark = onlineResultsMap[student.id]?.[selectedTest.id];
+      }
+
+      const percentage = mark !== undefined && selectedTest.totalMarks > 0 
+        ? Math.round((mark / selectedTest.totalMarks) * 100) + "%"
+        : "";
+      
+      const markStr = mark !== undefined ? mark : "Not Attempted";
+      
+      csvContent += `${index + 1},"${student.name}","${student.mobile}","${markStr}","${percentage}"\n`;
+    });
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `${selectedTest.testName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_scores.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-8 max-w-[1400px] mx-auto py-8 px-4">
       <button 
@@ -396,13 +431,21 @@ export default function BatchScoresPage({ params }: { params: Promise<{ batchId:
               </div>
             </div>
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mt-4 sm:mt-0">
+              <button
+                onClick={handleDownloadCsv}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
+                title="Download Scores CSV"
+              >
+                <Download size={16} />
+                <span className="hidden sm:inline">Download CSV</span>
+              </button>
               {selectedTest.type === "omr" && (
                 <button
                   onClick={() => downloadOmrResultSheet(selectedTest.id).catch((error) => toast.error(error.message))}
                   className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
                 >
                   <Download size={16} />
-                  Download Result Sheets
+                  Download OMR PDFs
                 </button>
               )}
               <button
