@@ -165,8 +165,8 @@ export function HeroSection() {
                     </div>
                   ))}
                 </div>
-                <div className="text-sm font-medium text-slate-600 flex flex-col">
-                  <span className="font-extrabold text-slate-900 text-lg">10,000+</span>
+                <div className="text-sm font-medium text-slate-600 flex flex-col items-start">
+                  <span className="font-extrabold text-slate-900 text-lg">1,000+</span>
                   <span>Students Selected</span>
                 </div>
               </div>
@@ -271,3 +271,4 @@ export function HeroSection() {
     </section>
   );
 }
+

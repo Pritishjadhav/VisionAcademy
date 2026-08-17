@@ -5,11 +5,12 @@ import { useState, useEffect } from "react";
 import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import { Button } from "@/components/ui/Button";
-import { Plus, Search, BookOpen, CheckCircle, XCircle, Trash2 } from "lucide-react";
+import { Plus, Search, BookOpen, CheckCircle, XCircle, Trash2, User } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/context/AuthContext";
 import { createFacultyUser, deleteFacultyUser } from "@/actions/faculty";
 import { getRequiredIdToken } from "@/lib/auth-token";
+import Image from "next/image";
 
 interface FacultyUser {
   id: string;
@@ -19,6 +20,7 @@ interface FacultyUser {
   subject: string;
   role: "faculty";
   enabled: boolean;
+  photoUrl?: string;
 }
 
 export function FacultyManagement() {
@@ -178,8 +180,19 @@ export function FacultyManagement() {
               ) : (
                 filteredFaculty.map(f => (
                   <tr key={f.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="py-4 px-6 font-medium text-slate-900">
-                      {f.name || <span className="text-slate-400 italic">Not set</span>}
+                    <td className="py-4 px-6">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-200 shrink-0 relative">
+                          {f.photoUrl ? (
+                            <Image src={f.photoUrl} alt={f.name || "Faculty"} fill className="object-cover" />
+                          ) : (
+                            <User className="text-slate-400" size={20} />
+                          )}
+                        </div>
+                        <span className="font-medium text-slate-900">
+                          {f.name || <span className="text-slate-400 italic font-normal">Not set</span>}
+                        </span>
+                      </div>
                     </td>
                     <td className="py-4 px-6 text-slate-600">
                       <a href={`mailto:${f.email}`} className="hover:text-brand-orange transition-colors">

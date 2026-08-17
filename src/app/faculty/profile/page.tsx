@@ -1,14 +1,17 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { db } from "@/lib/firebase/config";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { Button } from "@/components/ui/Button";
-import { Loader2, User, Mail, Phone, Calendar, BookOpen, Edit2, Save, ChevronDown, Check } from "lucide-react";
+import { Loader2, User, Mail, Phone, Calendar, BookOpen, Edit2, Save, ChevronDown, Check, Camera, Trash2, Eye, MoreVertical, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import { uploadImageToCloudinary } from "@/actions/cloudinary";
+import Image from "next/image";
+import { ImageCropper } from "@/components/ui/ImageCropper";
 
 const SUBJECTS = [
   "Physics",
@@ -28,9 +31,15 @@ export default function FacultyProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [fetching, setFetching] = useState(true);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [isGenderDropdownOpen, setIsGenderDropdownOpen] = useState(false);
   const [isSubjectDropdownOpen, setIsSubjectDropdownOpen] = useState(false);
+  
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showPhotoMenu, setShowPhotoMenu] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -39,6 +48,7 @@ export default function FacultyProfilePage() {
     mobile: "",
     email: "",
     subject: "",
+    photoUrl: "",
   });
 
   const fetchProfile = async () => {
@@ -57,6 +67,7 @@ export default function FacultyProfilePage() {
           mobile: data.mobile || "",
           email: storedEmail,
           subject: data.subject || "",
+          photoUrl: data.photoUrl || "",
         });
         
         // If profile hasn't been completed yet, open in edit mode automatically
@@ -110,6 +121,7 @@ export default function FacultyProfilePage() {
         dateOfBirth: formData.dateOfBirth,
         mobile: formData.mobile,
         subject: formData.subject,
+        photoUrl: formData.photoUrl,
         updatedAt: new Date().toISOString()
       });
 
@@ -122,6 +134,48 @@ export default function FacultyProfilePage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("File size must be less than 5MB");
+      return;
+    }
+
+    // Read the file as a data url to pass to cropper
+    const reader = new FileReader();
+    reader.addEventListener("load", () =>
+      setCropImageSrc(reader.result?.toString() || "")
+    );
+    reader.readAsDataURL(file);
+    setShowPhotoMenu(false); // Close menu
+  };
+
+  const handleCropComplete = async (croppedFile: File) => {
+    setCropImageSrc(null); // Close cropper modal
+    setUploadingPhoto(true);
+    try {
+      const uploadData = new FormData();
+      uploadData.append("file", croppedFile);
+      uploadData.append("folder", "faculty_profiles");
+
+      const url = await uploadImageToCloudinary(uploadData);
+      setFormData((prev) => ({ ...prev, photoUrl: url }));
+      toast.success("Photo cropped and uploaded! Click 'Save Changes' to update profile.");
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast.error("Failed to upload photo");
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handleDeletePhoto = () => {
+    setFormData((prev) => ({ ...prev, photoUrl: "" }));
+    setShowPhotoMenu(false);
   };
 
   if (loading || fetching) {
@@ -139,8 +193,90 @@ export default function FacultyProfilePage() {
         {/* Header */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-orange-50 text-orange-500 rounded-full flex items-center justify-center border-4 border-orange-100 shrink-0">
-              <User size={32} />
+            <div className="relative">
+              <div 
+                className="w-16 h-16 sm:w-20 sm:h-20 bg-orange-50 text-orange-500 rounded-full flex items-center justify-center border-4 border-orange-100 shrink-0 overflow-hidden relative cursor-pointer"
+                onClick={() => {
+                  if (formData.photoUrl && !isEditing) setShowViewModal(true);
+                }}
+              >
+                {formData.photoUrl ? (
+                  <Image src={formData.photoUrl} alt="Profile" fill className="object-cover" />
+                ) : (
+                  <User size={32} />
+                )}
+                
+                {/* Always visible upload overlay when editing */}
+                {isEditing && (
+                  <div className="absolute inset-x-0 bottom-0 bg-black/50 py-1 flex justify-center pointer-events-none">
+                    <Camera className="text-white w-4 h-4" />
+                  </div>
+                )}
+              </div>
+              
+              {/* Photo Action Menu */}
+              {isEditing && (
+                <div className="absolute -bottom-2 -right-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowPhotoMenu(!showPhotoMenu)}
+                    disabled={uploadingPhoto}
+                    className="bg-orange-500 text-white p-1.5 rounded-full shadow-lg hover:bg-orange-600 transition-colors disabled:opacity-50"
+                    title="Photo Options"
+                  >
+                    {uploadingPhoto ? <Loader2 className="animate-spin" size={16} /> : <MoreVertical size={16} />}
+                  </button>
+
+                  {showPhotoMenu && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={() => setShowPhotoMenu(false)}></div>
+                      <div className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-xl border border-slate-100 py-2 w-48 z-20 animate-in fade-in slide-in-from-top-2">
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center text-sm text-slate-700"
+                        >
+                          <Camera size={16} className="mr-2 text-slate-400" />
+                          Upload & Crop
+                        </button>
+                        {formData.photoUrl && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowViewModal(true);
+                                setShowPhotoMenu(false);
+                              }}
+                              className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center text-sm text-slate-700"
+                            >
+                              <Eye size={16} className="mr-2 text-slate-400" />
+                              View Photo
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleDeletePhoto}
+                              className="w-full text-left px-4 py-2 hover:bg-red-50 flex items-center text-sm text-red-600"
+                            >
+                              <Trash2 size={16} className="mr-2 text-red-400" />
+                              Remove Photo
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+              
+              {isEditing && (
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handlePhotoUpload}
+                  accept="image/jpeg, image/png, image/webp"
+                  className="hidden"
+                />
+              )}
             </div>
             <div>
               <h1 className="text-2xl font-bold text-slate-900">
@@ -392,6 +528,35 @@ export default function FacultyProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* Image Cropper Modal */}
+      {cropImageSrc && (
+        <ImageCropper
+          imageSrc={cropImageSrc}
+          onCropComplete={handleCropComplete}
+          onCancel={() => {
+            setCropImageSrc(null);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+          }}
+        />
+      )}
+
+      {/* View Photo Modal */}
+      {showViewModal && formData.photoUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4">
+          <div className="relative max-w-sm sm:max-w-md w-full animate-in zoom-in-95 duration-200">
+            <button
+              onClick={() => setShowViewModal(false)}
+              className="absolute -top-12 right-0 text-white hover:text-slate-300 transition-colors bg-white/10 hover:bg-white/20 rounded-full p-2"
+            >
+              <X size={24} />
+            </button>
+            <div className="relative aspect-square w-full rounded-full overflow-hidden border-4 border-white/20 shadow-2xl">
+              <Image src={formData.photoUrl} alt="Profile Full" fill className="object-cover" />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
