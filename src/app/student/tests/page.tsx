@@ -23,6 +23,7 @@ export default function StudentTestsPage() {
   const [completed, setCompleted] = useState<Test[]>([]);
   
   const [selectedTestForRules, setSelectedTestForRules] = useState<Test | null>(null);
+  const [practiceTest, setPracticeTest] = useState<Test | null>(null);
 
   const [attempts, setAttempts] = useState<Record<string, any>>({});
 
@@ -188,6 +189,9 @@ export default function StudentTestsPage() {
                       <Button variant="outline" className="w-full text-xs text-brand-blue border-brand-blue/30 hover:bg-brand-blue/5">Review</Button>
                     </Link>
                   )}
+                  <Button variant="outline" className="w-full col-span-full text-xs text-brand-orange border-brand-orange/30 hover:bg-brand-orange/5" onClick={() => setPracticeTest(test)}>
+                    <PlayCircle size={16} className="mr-1" /> Practice Test
+                  </Button>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-2">
@@ -199,6 +203,9 @@ export default function StudentTestsPage() {
                       View Q&A
                     </Button>
                   </Link>
+                  <Button variant="outline" className="w-full col-span-full text-xs text-brand-orange border-brand-orange/30 hover:bg-brand-orange/5" onClick={() => setPracticeTest(test)}>
+                    <PlayCircle size={16} className="mr-1" /> Practice Test
+                  </Button>
                 </div>
               )
             )}
@@ -262,6 +269,16 @@ export default function StudentTestsPage() {
           testName={selectedTestForRules.testName}
           studentId={user.uid}
           onClose={() => setSelectedTestForRules(null)}
+        />
+      )}
+
+      {practiceTest && user && (
+        <TestRulesModal 
+          testId={practiceTest.id}
+          testName={`${practiceTest.testName} (Practice)`}
+          studentId={user.uid}
+          isPractice={true}
+          onClose={() => setPracticeTest(null)}
         />
       )}
     </div>

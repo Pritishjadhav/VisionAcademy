@@ -12,10 +12,11 @@ interface TestRulesModalProps {
   testId: string;
   testName: string;
   studentId: string;
+  isPractice?: boolean;
   onClose: () => void;
 }
 
-export function TestRulesModal({ testId, testName, studentId, onClose }: TestRulesModalProps) {
+export function TestRulesModal({ testId, testName, studentId, isPractice, onClose }: TestRulesModalProps) {
   const [agreed, setAgreed] = useState(false);
   const [starting, setStarting] = useState(false);
   const router = useRouter();
@@ -44,7 +45,8 @@ export function TestRulesModal({ testId, testName, studentId, onClose }: TestRul
       };
 
       // 3. Enforce single-device rule (Check activeSessions)
-      const sessionDocRef = doc(db, "activeSessions", `${testId}_${studentId}`);
+      const sessionKey = isPractice ? `${testId}_${studentId}_practice` : `${testId}_${studentId}`;
+      const sessionDocRef = doc(db, "activeSessions", sessionKey);
       const sessionSnap = await getDoc(sessionDocRef);
       
       if (sessionSnap.exists()) {
@@ -64,11 +66,15 @@ export function TestRulesModal({ testId, testName, studentId, onClose }: TestRul
         sessionId,
         deviceId,
         deviceInfo,
-        lastHeartbeat: serverTimestamp()
+        lastHeartbeat: serverTimestamp(),
+        isPractice: !!isPractice
       });
 
       // 5. Redirect to live test with session ID
-      router.push(`/student/tests/${testId}/live?sessionId=${sessionId}`);
+      const url = isPractice 
+        ? `/student/tests/${testId}/live?sessionId=${sessionId}&practice=true`
+        : `/student/tests/${testId}/live?sessionId=${sessionId}`;
+      router.push(url);
 
     } catch (error) {
       console.error("Error starting test:", error);
@@ -86,7 +92,7 @@ export function TestRulesModal({ testId, testName, studentId, onClose }: TestRul
               <ShieldAlert size={24} />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-900">Secure Test Mode</h2>
+              <h2 className="text-xl font-bold text-slate-900">{isPractice ? "Practice Test Mode" : "Secure Test Mode"}</h2>
               <p className="text-sm text-slate-500">You are about to start: <span className="font-semibold">{testName}</span></p>
             </div>
           </div>

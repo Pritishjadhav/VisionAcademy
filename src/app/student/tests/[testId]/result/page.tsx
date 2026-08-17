@@ -11,10 +11,13 @@ import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import toast from "react-hot-toast";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { useSearchParams } from "next/navigation";
 
 export default function StudentResultPage() {
   const { testId } = useParams() as { testId: string };
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isPractice = searchParams.get('practice') === 'true';
   const { user, dbUser } = useAuth();
   
   const [test, setTest] = useState<Test | null>(null);
@@ -33,13 +36,23 @@ export default function StudentResultPage() {
           return;
         }
 
-        const resQ = query(collection(db, "results"), where("testId", "==", testId), where("studentId", "==", user.uid));
-        const resSnap = await getDocs(resQ);
-        if (!resSnap.empty) {
-          setResult({ id: resSnap.docs[0].id, ...resSnap.docs[0].data() } as TestResult);
+        if (isPractice) {
+          const storedResult = sessionStorage.getItem(`practiceResult_${testId}`);
+          if (storedResult) {
+            setResult(JSON.parse(storedResult) as TestResult);
+          } else {
+            toast.error("Practice result not found");
+            router.replace("/student/tests");
+          }
         } else {
-          toast.error("Result not found");
-          router.replace("/student/tests");
+          const resQ = query(collection(db, "results"), where("testId", "==", testId), where("studentId", "==", user.uid));
+          const resSnap = await getDocs(resQ);
+          if (!resSnap.empty) {
+            setResult({ id: resSnap.docs[0].id, ...resSnap.docs[0].data() } as TestResult);
+          } else {
+            toast.error("Result not found");
+            router.replace("/student/tests");
+          }
         }
       } catch (error) {
         console.error("Error fetching result:", error);
@@ -82,7 +95,7 @@ export default function StudentResultPage() {
           </div>
         </div>
         {result.submissionType !== 'Auto Submitted' && (
-          <Link href={`/student/tests/${test.id}/review`}>
+          <Link href={`/student/tests/${test.id}/review${isPractice ? '?practice=true' : ''}`}>
             <Button variant="outline" className="border-brand-blue text-brand-blue">
               Review Answers
             </Button>

@@ -38,6 +38,7 @@ export default function LiveTestPage() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('sessionId');
+  const isPractice = searchParams.get('practice') === 'true';
   const violationTriggered = useRef(false);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -59,12 +60,14 @@ export default function LiveTestPage() {
         setTest(tData);
 
         // Check if already submitted
-        const resQ = query(collection(db, "results"), where("testId", "==", testId), where("studentId", "==", user.uid));
-        const resSnap = await getDocs(resQ);
-        if (!resSnap.empty) {
-          toast.error("You have already submitted this test.");
-          router.replace(`/student/tests/${testId}/result`);
-          return;
+        if (!isPractice) {
+          const resQ = query(collection(db, "results"), where("testId", "==", testId), where("studentId", "==", user.uid));
+          const resSnap = await getDocs(resQ);
+          if (!resSnap.empty) {
+            toast.error("You have already submitted this test.");
+            router.replace(`/student/tests/${testId}/result`);
+            return;
+          }
         }
 
         // Fetch questions
@@ -81,18 +84,19 @@ export default function LiveTestPage() {
         });
         setAnswers(initialAnswers);
 
+        // Calculate max duration limit
+        const durationLimit = tData.totalDuration * 60;
+
         // Timer
         const end = new Date(`${tData.testDate}T${tData.endTime}`).getTime();
         const now = Date.now();
         const remaining = Math.floor((end - now) / 1000);
-        if (remaining <= 0) {
+        
+        if (!isPractice && remaining <= 0) {
           toast.error("Test is closed");
           router.replace(`/student/tests`);
           return;
         }
-
-        // Calculate max duration limit
-        const durationLimit = tData.totalDuration * 60;
 
         // --- Secure Test Mode Initialization ---
         // 1. Session Binding Check
@@ -102,7 +106,8 @@ export default function LiveTestPage() {
           return;
         }
 
-        const sessionDoc = await getDoc(doc(db, "activeSessions", `${testId}_${user.uid}`));
+        const sessionKey = isPractice ? `${testId}_${user.uid}_practice` : `${testId}_${user.uid}`;
+        const sessionDoc = await getDoc(doc(db, "activeSessions", sessionKey));
         if (!sessionDoc.exists() || sessionDoc.data().sessionId !== sessionId) {
           toast.error("Test is active on another device or session expired.");
           router.replace(`/student/tests`);
@@ -110,37 +115,47 @@ export default function LiveTestPage() {
         }
 
         // 2. Initialize or Resume Test Attempt
-        const attemptRef = doc(db, "testAttempts", `${testId}_${user.uid}`);
+        const attemptCollection = "testAttempts";
+        const sessionKeyAttempt = `${testId}_${user.uid}`;
+        const attemptRef = doc(db, attemptCollection, sessionKeyAttempt);
         const attemptSnap = await getDoc(attemptRef);
 
-        if (attemptSnap.exists()) {
-          const aData = attemptSnap.data();
-          if (aData.status !== 'active') {
-            toast.error("You cannot resume a submitted test.");
-            router.replace(`/student/tests/${testId}/result`);
-            return;
-          }
-          // Restore state
-          if (aData.answers) {
-            setAnswers(aData.answers);
-          }
-          if (aData.remainingTime) {
-            setTimeLeft(aData.remainingTime);
-          } else {
-            setTimeLeft(Math.min(remaining, durationLimit));
-          }
+        const initialTimeLeft = isPractice ? durationLimit : Math.min(remaining, durationLimit);
+
+        if (isPractice) {
+          setTimeLeft(initialTimeLeft);
+          setAnswers(initialAnswers);
         } else {
-          // New Attempt
-          await setDoc(attemptRef, {
-            studentId: user.uid,
-            testId: testId,
-            batch: tData.batch,
-            status: 'active',
-            sessionId: sessionId,
-            startTime: serverTimestamp(),
-            remainingTime: Math.min(remaining, durationLimit)
-          });
-          setTimeLeft(Math.min(remaining, durationLimit));
+          if (attemptSnap.exists()) {
+            const aData = attemptSnap.data();
+            if (aData.status !== 'active') {
+              toast.error("You cannot resume a submitted test.");
+              router.replace(`/student/tests/${testId}/result`);
+              return;
+            }
+            // Restore active state
+            if (aData.answers) {
+              setAnswers(aData.answers);
+            }
+            if (aData.remainingTime) {
+              setTimeLeft(aData.remainingTime);
+            } else {
+              setTimeLeft(initialTimeLeft);
+            }
+          } else {
+            // New Attempt
+            await setDoc(attemptRef, {
+              studentId: user.uid,
+              testId: testId,
+              batch: tData.batch,
+              status: 'active',
+              sessionId: sessionId,
+              startTime: serverTimestamp(),
+              remainingTime: initialTimeLeft,
+              isPractice: false
+            });
+            setTimeLeft(initialTimeLeft);
+          }
         }
 
       } catch (error) {
@@ -165,8 +180,10 @@ export default function LiveTestPage() {
         }
 
         // Auto-save every 10 seconds
-        if (prev % 10 === 0 && testId && user) {
-          const attemptRef = doc(db, "testAttempts", `${testId}_${user.uid}`);
+        if (!isPractice && prev % 10 === 0 && testId && user) {
+          const attemptCollection = "testAttempts";
+          const sessionKeyAttempt = `${testId}_${user.uid}`;
+          const attemptRef = doc(db, attemptCollection, sessionKeyAttempt);
           setDoc(attemptRef, { remainingTime: prev - 1, answers: answersRef.current, lastSaveTime: new Date().toISOString() }, { merge: true }).catch(() => { });
         }
 
@@ -477,7 +494,6 @@ export default function LiveTestPage() {
 
       const timeTaken = Math.floor((Date.now() - startTimeRef.current) / 1000);
 
-      // Save Result
       const resultData: Omit<TestResult, 'id'> = {
         testId: test.id,
         studentId: user.uid,
@@ -498,8 +514,6 @@ export default function LiveTestPage() {
         violationReason: violationReason || ""
       };
 
-      await addDoc(collection(db, "results"), resultData);
-
       // Save Answers
       const studentAnswerData: Omit<StudentAnswer, 'id'> = {
         testId: test.id,
@@ -512,13 +526,21 @@ export default function LiveTestPage() {
         violationReason: violationReason || ""
       };
 
-      await addDoc(collection(db, "studentAnswers"), studentAnswerData);
+
+      if (isPractice) {
+        sessionStorage.setItem(`practiceResult_${test.id}`, JSON.stringify(resultData));
+        sessionStorage.setItem(`practiceAnswers_${test.id}`, JSON.stringify(studentAnswerData));
+      } else {
+        await addDoc(collection(db, "results"), resultData);
+        await addDoc(collection(db, "studentAnswers"), studentAnswerData);
+      }
 
       // Secure Test Mode cleanup & logging
-      if (submissionType === 'Auto Submitted') {
+      if (!isPractice && submissionType === 'Auto Submitted') {
         const ua = navigator.userAgent;
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
-        await addDoc(collection(db, "violationLogs"), {
+        const violationCollection = "violationLogs";
+        await addDoc(collection(db, violationCollection), {
           studentId: user.uid,
           studentName: (dbUser?.name as string) || 'Unknown',
           testId: test.id,
@@ -533,14 +555,19 @@ export default function LiveTestPage() {
       }
 
       // Update Attempt Status
-      await setDoc(doc(db, "testAttempts", `${test.id}_${user.uid}`), {
-        status: submissionType === 'Auto Submitted' ? 'auto-submitted' : 'submitted',
-        answers: JSON.parse(JSON.stringify(answers)),
-        remainingTime: timeLeft,
-      }, { merge: true });
+      if (!isPractice) {
+        const attemptCollection = "testAttempts";
+        const sessionKeyAttempt = `${test.id}_${user.uid}`;
+        await setDoc(doc(db, attemptCollection, sessionKeyAttempt), {
+          status: submissionType === 'Auto Submitted' ? 'auto-submitted' : 'submitted',
+          answers: JSON.parse(JSON.stringify(answers)),
+          remainingTime: timeLeft,
+        }, { merge: true });
+      }
 
       // Clear Active Session
-      await deleteDoc(doc(db, "activeSessions", `${test.id}_${user.uid}`));
+      const activeSessionKey = isPractice ? `${test.id}_${user.uid}_practice` : `${test.id}_${user.uid}`;
+      await deleteDoc(doc(db, "activeSessions", activeSessionKey));
 
       // Exit fullscreen
       if (document.fullscreenElement) {
@@ -553,7 +580,7 @@ export default function LiveTestPage() {
         toast.success("Test submitted successfully!");
       }
 
-      router.replace(`/student/tests/${test.id}/result`);
+      router.replace(`/student/tests/${test.id}/result${isPractice ? '?practice=true' : ''}`);
 
     } catch (error) {
       console.error(error);

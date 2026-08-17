@@ -10,10 +10,13 @@ import { Loader2, ArrowLeft, CheckCircle2, XCircle, AlertCircle, Clock } from "l
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import toast from "react-hot-toast";
+import { useSearchParams } from "next/navigation";
 
 export default function StudentReviewPage() {
   const { testId } = useParams() as { testId: string };
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isPractice = searchParams.get('practice') === 'true';
   const { user } = useAuth();
 
   const [test, setTest] = useState<Test | null>(null);
@@ -35,18 +38,27 @@ export default function StudentReviewPage() {
         }
 
         // Fetch Answers
-        const ansQ = query(collection(db, "studentAnswers"), where("testId", "==", testId), where("studentId", "==", user.uid));
-        const ansSnap = await getDocs(ansQ);
-        if (!ansSnap.empty) {
-          const ansData = { id: ansSnap.docs[0].id, ...ansSnap.docs[0].data() } as StudentAnswer;
-          if (ansData.submissionType === 'Auto Submitted') {
-            toast.error("Review is not allowed for auto-submitted tests due to rule violations.");
-            router.replace(`/student/tests/${testId}/result`);
-            return;
+        if (isPractice) {
+          const storedAnswers = sessionStorage.getItem(`practiceAnswers_${testId}`);
+          if (storedAnswers) {
+            setStudentAnswers(JSON.parse(storedAnswers) as StudentAnswer);
+          } else {
+            setStudentAnswers(null);
           }
-          setStudentAnswers(ansData);
         } else {
-          setStudentAnswers(null);
+          const ansQ = query(collection(db, "studentAnswers"), where("testId", "==", testId), where("studentId", "==", user.uid));
+          const ansSnap = await getDocs(ansQ);
+          if (!ansSnap.empty) {
+            const ansData = { id: ansSnap.docs[0].id, ...ansSnap.docs[0].data() } as StudentAnswer;
+            if (ansData.submissionType === 'Auto Submitted') {
+              toast.error("Review is not allowed for auto-submitted tests due to rule violations.");
+              router.replace(`/student/tests/${testId}/result`);
+              return;
+            }
+            setStudentAnswers(ansData);
+          } else {
+            setStudentAnswers(null);
+          }
         }
 
         // Fetch Questions
@@ -107,7 +119,7 @@ export default function StudentReviewPage() {
     <div className="space-y-8 max-w-5xl mx-auto py-8 px-4 sm:px-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-4">
-          <Link href={`/student/tests/${testId}/result`}>
+          <Link href={`/student/tests/${testId}/result${isPractice ? '?practice=true' : ''}`}>
             <button className="p-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors">
               <ArrowLeft size={20} className="text-slate-700" />
             </button>

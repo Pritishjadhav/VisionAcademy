@@ -34,6 +34,7 @@ interface TestScore {
   marksObtained: number;
   totalMarks: number;
   percentage: number;
+  accuracy?: number;
   type: "theory" | "online";
 }
 
@@ -124,6 +125,7 @@ export default function StudentProfilePage({ params }: { params: Promise<{ batch
             marksObtained: data.marksObtained,
             totalMarks: data.totalMarks,
             percentage: Math.round(pct),
+            accuracy: data.overallAccuracy || 0,
             type: "online"
           };
         });
@@ -209,13 +211,13 @@ export default function StudentProfilePage({ params }: { params: Promise<{ batch
   const totalFees = student.totalFees || 0;
   const remainingFees = Math.max(0, totalFees - totalFeesPaid);
 
-  // Prepare chart data (format date for display)
   const chartData = [...displayScores]
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
     .map(s => ({
       name: s.testName,
       date: new Date(s.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }),
       percentage: s.percentage,
+      accuracy: s.accuracy,
       type: s.type
     }));
 
@@ -356,6 +358,17 @@ export default function StudentProfilePage({ params }: { params: Promise<{ batch
                         dot={{ r: 4, fill: "#4f46e5", strokeWidth: 0 }}
                         activeDot={{ r: 6, fill: "#4f46e5", strokeWidth: 0 }}
                       />
+                      {activeTab === "online" && (
+                        <Line
+                          type="monotone"
+                          dataKey="accuracy"
+                          name="Accuracy %"
+                          stroke="#ea580c"
+                          strokeWidth={2}
+                          dot={{ r: 4, fill: "#ea580c", strokeWidth: 0 }}
+                          activeDot={{ r: 6, fill: "#ea580c", strokeWidth: 0 }}
+                        />
+                      )}
                     </LineChart>
                   </ResponsiveContainer>
                 </div>

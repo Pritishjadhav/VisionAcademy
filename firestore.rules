@@ -91,6 +91,12 @@ service cloud.firestore {
       allow read: if isAuthenticated();
     }
 
+    match /practiceStudentAnswers/{answerId} {
+      allow read, write: if isAdminOrSuperAdmin();
+      allow write: if isAuthenticated() && (resource == null || resource.data.studentId == request.auth.uid || request.resource.data.studentId == request.auth.uid);
+      allow read: if isAuthenticated();
+    }
+
     // Results Collection
     match /results/{resultId} {
       allow read, write: if isAdminOrSuperAdmin();
@@ -98,6 +104,11 @@ service cloud.firestore {
       allow read: if isAuthenticated() && 
         exists(/databases/$(database)/documents/parents/$(request.auth.uid)) &&
         resource.data.studentId in get(/databases/$(database)/documents/parents/$(request.auth.uid)).data.studentIds;
+    }
+
+    match /practiceResults/{resultId} {
+      allow read, write: if isAdminOrSuperAdmin();
+      allow read, write: if isAuthenticated() && (resource == null || resource.data.studentId == request.auth.uid || request.resource.data.studentId == request.auth.uid);
     }
 
     // Rankings and Analytics Collections
@@ -153,8 +164,19 @@ service cloud.firestore {
       allow read, write: if isAdminOrSuperAdmin();
       allow read, write: if isAuthenticated() && (resource == null || resource.data.studentId == request.auth.uid || request.resource.data.studentId == request.auth.uid);
     }
+    
+    match /practiceTestAttempts/{attemptId} {
+      allow read, write: if isAdminOrSuperAdmin();
+      allow read, write: if isAuthenticated() && (resource == null || resource.data.studentId == request.auth.uid || request.resource.data.studentId == request.auth.uid);
+    }
 
     match /violationLogs/{logId} {
+      allow read, write: if isAdminOrSuperAdmin();
+      allow create: if isAuthenticated() && request.resource.data.studentId == request.auth.uid;
+      allow read: if isAuthenticated() && resource.data.studentId == request.auth.uid;
+    }
+
+    match /practiceViolationLogs/{logId} {
       allow read, write: if isAdminOrSuperAdmin();
       allow create: if isAuthenticated() && request.resource.data.studentId == request.auth.uid;
       allow read: if isAuthenticated() && resource.data.studentId == request.auth.uid;

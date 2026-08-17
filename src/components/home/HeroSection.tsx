@@ -127,10 +127,10 @@ export function HeroSection() {
             </div>
 
             <h1
-              className="text-5xl lg:text-7xl font-extrabold tracking-tight mb-6 text-slate-900 drop-shadow-sm leading-[1.1]"
+              className="text-5xl lg:text-7xl font-extrabold tracking-tight mb-6 drop-shadow-sm leading-[1.1]"
               style={{ fontFamily: "'Times New Roman', Times, serif" }}
             >
-              VISION <span className="text-brand-orange">ACADEMY</span>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">VISION</span> <span className="text-brand-orange">ACADEMY</span>
             </h1>
 
             <h2 className="text-2xl lg:text-3xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-brand-blue via-purple-600 to-brand-orange drop-shadow-sm">
