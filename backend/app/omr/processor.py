@@ -12,7 +12,7 @@ from app.omr.models import GradeResult
 MAX_IMAGE_DIMENSION = 6000
 WARP_WIDTH = 1000
 REFERENCE_GRID_WIDTH_POINTS = 533
-def _question_layout(questions: int, exam_type: str) -> tuple[int, int, list[int]]:
+def _question_layout(questions: int, exam_type: str, numerical: int = 0) -> tuple[int, int, list[int]]:
     if exam_type == "JEE":
         slots = [
             *range(0, 20),
@@ -20,8 +20,9 @@ def _question_layout(questions: int, exam_type: str) -> tuple[int, int, list[int
             *range(50, 70),
         ]
         return 3, 25, slots
-    columns = ceil(questions / 30)
-    return columns, min(30, questions), list(range(questions))
+    total = questions + numerical
+    columns = ceil(total / 30)
+    return columns, min(30, total), list(range(questions))
 
 
 
@@ -207,10 +208,11 @@ def _cell_ink_counts(
     choices: int,
     reference_layout: bool = False,
     exam_type: str = "NEET",
+    numerical: int = 0,
 ) -> np.ndarray:
     height, width = threshold.shape
     counts = np.zeros((questions, choices), dtype=np.float32)
-    columns, rows, slots = _question_layout(questions, exam_type)
+    columns, rows, slots = _question_layout(questions, exam_type, numerical)
     block_width = width / columns
     label_fraction = min(15 * columns / REFERENCE_GRID_WIDTH_POINTS, 0.18) if reference_layout else 0
     trailing_fraction = 5 * columns / REFERENCE_GRID_WIDTH_POINTS if reference_layout else 0
@@ -237,10 +239,11 @@ def _cell_fill_ratios(
     choices: int,
     reference_layout: bool = False,
     exam_type: str = "NEET",
+    numerical: int = 0,
 ) -> np.ndarray:
     height, width = threshold.shape
     ratios = np.zeros((questions, choices), dtype=np.float32)
-    columns, rows, slots = _question_layout(questions, exam_type)
+    columns, rows, slots = _question_layout(questions, exam_type, numerical)
     block_width = width / columns
     label_fraction = min(15 * columns / REFERENCE_GRID_WIDTH_POINTS, 0.18) if reference_layout else 0
     trailing_fraction = 5 * columns / REFERENCE_GRID_WIDTH_POINTS if reference_layout else 0
@@ -270,6 +273,7 @@ def grade_image(
     choices: int,
     answer_key: list[int],
     exam_type: str = "NEET",
+    numerical: int = 0,
 ) -> GradeResult:
     corners = _find_answer_area(image, questions)
     warped, _ = _warp_answer_area(image, corners, questions, choices)
@@ -280,8 +284,8 @@ def grade_image(
         questions > 30
         or cv2.countNonZero(top_band) / top_band.size < 0.1
     )
-    ink_counts = _cell_ink_counts(threshold, questions, choices, reference_layout, exam_type)
-    fill_ratios = _cell_fill_ratios(threshold, questions, choices, reference_layout, exam_type)
+    ink_counts = _cell_ink_counts(threshold, questions, choices, reference_layout, exam_type, numerical)
+    fill_ratios = _cell_fill_ratios(threshold, questions, choices, reference_layout, exam_type, numerical)
     median_fill = max(float(np.median(fill_ratios)), 0.001)
     maximum_fill = float(np.max(fill_ratios))
     sheet_has_marks = (
@@ -295,7 +299,7 @@ def grade_image(
     confidence: list[float] = []
     grading: list[bool] = []
     annotated = warped.copy()
-    layout_columns, layout_rows, layout_slots = _question_layout(questions, exam_type)
+    layout_columns, layout_rows, layout_slots = _question_layout(questions, exam_type, numerical)
     block_width = annotated.shape[1] / layout_columns
     label_fraction = (
         min(15 * layout_columns / REFERENCE_GRID_WIDTH_POINTS, 0.18)

@@ -72,6 +72,7 @@ export async function createOmrTest(
     batch: string;
     examType: string;
     totalQuestions?: number;
+    numericalQuestions?: number;
     choices?: number;
     marksPerCorrectAnswer: number;
     marksPerWrongAnswer: number;
@@ -106,6 +107,7 @@ export async function createOmrTest(
     throw new Error("Enter a valid marking scheme.");
   }
 
+  const numericalQuestions = input.examType === "CUSTOM" ? Number(input.numericalQuestions || 0) : 0;
   const now = new Date().toISOString();
   const document = {
     testName: input.testName.trim(),
@@ -114,6 +116,7 @@ export async function createOmrTest(
     examType: input.examType,
     totalQuestions,
     omrQuestions,
+    numericalQuestions,
     choices,
     marksPerCorrectAnswer: input.marksPerCorrectAnswer,
     marksPerWrongAnswer: input.marksPerWrongAnswer,
@@ -148,16 +151,19 @@ export async function saveOmrResult(
   if (student.batch !== test.batch) throw new Error("The student is not in this test batch.");
   const omrQuestions = test.omrQuestions ?? (test.examType === "JEE" ? 60 : test.totalQuestions);
   if (input.selectedAnswers.length !== omrQuestions) throw new Error("Invalid graded answer count.");
-  const numericalAnswers = test.examType === "JEE" ? input.numericalAnswers : [];
+  const requiresNumerical = test.examType === "JEE" || (test.examType === "CUSTOM" && test.numericalQuestions! > 0);
+  const numericalAnswers = requiresNumerical ? input.numericalAnswers : [];
+  const requiredNumericalCount = test.examType === "JEE" ? 15 : (test.numericalQuestions || 0);
+
   if (
-    test.examType === "JEE"
+    requiredNumericalCount > 0
     && (
       !Array.isArray(numericalAnswers)
-      || numericalAnswers.length !== 15
+      || numericalAnswers.length !== requiredNumericalCount
       || numericalAnswers.some((status) => !["correct", "wrong", "blank"].includes(status))
     )
   ) {
-    throw new Error("Complete the manual status for all 15 JEE numerical questions.");
+    throw new Error(`Complete the manual status for all ${requiredNumericalCount} numerical questions.`);
   }
 
   let correctAnswers = 0;

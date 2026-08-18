@@ -109,12 +109,14 @@ def _draw_answer_grid(
     questions: int,
     choices: int,
     exam_type: str = "NEET",
+    numerical: int = 0,
 ) -> None:
     left, right = 31, width - 31
     bottom, top = 48, height - 294
     is_jee = exam_type == "JEE"
-    columns = 3 if is_jee else ceil(questions / QUESTIONS_PER_COLUMN)
-    rows = 25 if is_jee else min(QUESTIONS_PER_COLUMN, questions)
+    total_slots = questions + numerical
+    columns = 3 if is_jee else ceil(total_slots / QUESTIONS_PER_COLUMN)
+    rows = 25 if is_jee else min(QUESTIONS_PER_COLUMN, total_slots)
     block_width = (right - left) / columns
     row_height = (top - bottom - 18) / rows
     label_width = min(15, block_width * 0.18)
@@ -137,12 +139,16 @@ def _draw_answer_grid(
 
         for row in range(rows):
             question = column * (25 if is_jee else QUESTIONS_PER_COLUMN) + row + 1
-            if not is_jee and question > questions:
+            if not is_jee and question > total_slots:
                 break
             y = top - 22 - row * row_height
             pdf.setFont("Helvetica-Bold", 4.8)
             pdf.drawRightString(bubbles_left - 2, y - 1.5, str(question))
             if is_jee and row >= 20:
+                pdf.setFont("Helvetica", 4)
+                pdf.drawString(bubbles_left + 4, y - 1.5, "NUMERICAL  __________")
+                continue
+            elif not is_jee and question > questions:
                 pdf.setFont("Helvetica", 4)
                 pdf.drawString(bubbles_left + 4, y - 1.5, "NUMERICAL  __________")
                 continue
@@ -161,9 +167,10 @@ def generate_sheet_pdf(
     choices: int,
     title: str,
     exam_type: str = "NEET",
+    numerical: int = 0,
 ) -> bytes:
     clean_title = " ".join(title.split()).strip()[:100] or "Vision Academy"
-    if questions > MAX_PRINTABLE_QUESTIONS:
+    if questions + numerical > MAX_PRINTABLE_QUESTIONS:
         raise OmrError(
             f"Printable sheets support up to {MAX_PRINTABLE_QUESTIONS} questions.",
             code="SHEET_TOO_LONG",
@@ -176,7 +183,7 @@ def generate_sheet_pdf(
     _draw_registration_marks(pdf, width, height)
     _draw_header(pdf, width, height, clean_title)
     _draw_candidate_panel(pdf, width, height)
-    _draw_answer_grid(pdf, width, height, questions, choices, exam_type)
+    _draw_answer_grid(pdf, width, height, questions, choices, exam_type, numerical)
     pdf.showPage()
     pdf.save()
     return output.getvalue()

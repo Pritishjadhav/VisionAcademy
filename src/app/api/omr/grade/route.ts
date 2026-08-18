@@ -45,6 +45,7 @@ export async function POST(request: Request): Promise<Response> {
       operation: "grade",
       questions: Number(form.get("num_questions")),
       choices: Number(form.get("num_choices")),
+      numerical: Number(form.get("numerical") || "0"),
       answer_key: String(form.get("answer_key") || ""),
       image_base64: Buffer.from(await file.arrayBuffer()).toString("base64"),
       media_type: file.type,

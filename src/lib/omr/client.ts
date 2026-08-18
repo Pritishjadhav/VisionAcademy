@@ -21,6 +21,7 @@ export async function gradeOmrSheet(
   numChoices: number,
   answers: number[],
   examType: OmrExamType,
+  numerical: number = 0,
 ): Promise<OmrGradeResult> {
   const token = await getRequiredIdToken();
   const formData = new FormData();
@@ -29,6 +30,7 @@ export async function gradeOmrSheet(
   formData.append("num_choices", String(numChoices));
   formData.append("answer_key", answers.join(","));
   formData.append("exam_type", examType);
+  formData.append("numerical", String(numerical));
 
   const response = await fetch("/api/omr/grade", {
     method: "POST",
@@ -45,6 +47,7 @@ export async function downloadOmrSheet(
   choices: number,
   title: string,
   examType: OmrExamType,
+  numerical: number = 0,
 ): Promise<void> {
   const token = await getRequiredIdToken();
   const query = new URLSearchParams({
@@ -52,6 +55,7 @@ export async function downloadOmrSheet(
     choices: String(choices),
     title,
     examType,
+    numerical: String(numerical),
   });
   const response = await fetch(`/api/omr/generate?${query}`, {
     headers: { Authorization: `Bearer ${token}` },

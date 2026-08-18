@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
-import { Navbar } from "@/components/Navbar";
-import { Footer } from "@/components/Footer";
 import { AuthProvider } from "@/context/AuthContext";
-import { Toaster } from "react-hot-toast";
+import { ClientLayoutWrapper } from "@/components/ClientLayoutWrapper";
 import "./globals.css";
 
 const inter = Inter({
@@ -52,16 +50,11 @@ export default function RootLayout({
 
     return (
         <html lang="en" className={`${inter.variable} scroll-smooth antialiased`}>
-            <body className="min-h-screen flex flex-col bg-slate-50 text-slate-900 pt-20">
+            <body className="min-h-screen flex flex-col bg-slate-50 text-slate-900">
                 <AuthProvider>
-                    <Navbar />
-                    <div className="overflow-x-hidden w-full flex-grow flex flex-col">
-                        <main className="flex-grow">
-                            {children}
-                        </main>
-                        <Footer />
-                    </div>
-                    <Toaster position="top-center" />
+                    <ClientLayoutWrapper>
+                        {children}
+                    </ClientLayoutWrapper>
                 </AuthProvider>
             </body>
         </html>

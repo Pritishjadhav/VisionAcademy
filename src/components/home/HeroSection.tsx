@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { Button } from "../ui/Button";
-import { Dna } from "lucide-react";
+import { Dna, Stethoscope } from "lucide-react";
 
 const InstagramIcon = ({ size = 20, className = "" }: { size?: number, className?: string }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -11,6 +11,12 @@ const InstagramIcon = ({ size = 20, className = "" }: { size?: number, className
     <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
     <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
   </svg>
+);
+
+const StethoscopeEmojiIcon = ({ className = "" }: { className?: string }) => (
+  <span className={`${className} flex items-center justify-center text-[6rem] md:text-[9rem] scale-[1.2]`} role="img" aria-label="stethoscope">
+    🩺
+  </span>
 );
 
 const BenzeneIcon = ({ className = "" }: { className?: string }) => (
@@ -56,26 +62,46 @@ const BenzeneIcon = ({ className = "" }: { className?: string }) => (
   </svg>
 );
 
+const AmoebaIcon = ({ className = "" }: { className?: string }) => (
+  <svg className={`${className} scale-[2.5] md:scale-[3]`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+    {/* Amoeba body path */}
+    <path d="M 50 10 C 70 5, 90 20, 85 45 C 80 70, 95 85, 65 95 C 40 105, 15 85, 10 60 C 5 40, 20 15, 50 10 Z" fill="currentColor" fillOpacity="0.1" strokeWidth="1.5" />
+    {/* Nucleus */}
+    <circle cx="45" cy="45" r="8" fill="currentColor" fillOpacity="0.4" />
+    <circle cx="43" cy="43" r="2" fill="white" />
+    {/* Vacuoles */}
+    <circle cx="65" cy="30" r="4" stroke="currentColor" />
+    <circle cx="30" cy="70" r="6" stroke="currentColor" />
+    <circle cx="70" cy="70" r="3" stroke="currentColor" />
+  </svg>
+);
+
+const CustomStethoscopeIcon = ({ className = "" }: { className?: string }) => (
+  <Stethoscope className={`${className} scale-[2.0] md:scale-[2.5]`} />
+);
+
 const floatingFormulas = [
   // Math
-  { text: "∫eˣdx = eˣ+C", left: "5%", top: "15%", delay: 0, color: "text-blue-500/30" },
+  { text: "∫eˣdx = eˣ+C", left: "18%", top: "8%", delay: 0, color: "text-blue-500/30" },
   { text: "lim(x→0) sin(x)/x = 1", left: "45%", top: "10%", delay: 1, color: "text-purple-500/30" },
   { text: "cos²θ + sin²θ = 1", left: "15%", top: "85%", delay: 3, color: "text-indigo-500/30" },
 
   // Physics
-  { text: "E = mc²", left: "85%", top: "25%", delay: 1.5, color: "text-orange-500/30" },
+  { text: "E = mc²", left: "60%", top: "80%", delay: 1.5, color: "text-orange-500/30" },
   { text: "F = G(m₁m₂)/r²", left: "10%", top: "45%", delay: 2.5, color: "text-red-500/30" },
-  { text: "V = IR", left: "60%", top: "80%", delay: 0.5, color: "text-yellow-500/30" },
+  { text: "V = IR", left: "90%", top: "25%", delay: 0.5, color: "text-yellow-500/30" },
 
   // Chemistry
-  { text: "PV = nRT", left: "80%", top: "65%", delay: 2, color: "text-green-500/30" },
+  { text: "PV = nRT", left: "86%", top: "65%", delay: 2, color: "text-green-500/30" },
   { text: "ΔG = ΔH - TΔS", left: "25%", top: "25%", delay: 3.5, color: "text-emerald-500/30" },
   { text: "C₆H₆ (Benzene)", left: "35%", top: "75%", delay: 4, color: "text-teal-500/30" },
 
-  // Biology
-  { text: "C₆H₁₂O₆ + 6O₂", left: "50%", top: "35%", delay: 1.2, color: "text-rose-500/30" },
+  // Biology & Medicine
+  { text: "C₆H₁₂O₆ + 6O₂", left: "50%", top: "28%", delay: 1.2, color: "text-rose-500/30" },
   { text: "", icon: BenzeneIcon, left: "85%", top: "85%", delay: 2.8, color: "text-pink-500/30" },
   { text: "", icon: Dna, left: "70%", top: "15%", delay: 2.2, color: "text-emerald-500/30" },
+  { text: "", icon: StethoscopeEmojiIcon, left: "82%", top: "50%", delay: 1.7, color: "text-brand-orange/30" },
+  { text: "", icon: AmoebaIcon, left: "42%", top: "58%", delay: 3.1, color: "text-purple-500/30" },
 ];
 
 export function HeroSection() {
@@ -112,7 +138,7 @@ export function HeroSection() {
         </motion.div>
       ))}
 
-      <div className="relative z-10 max-w-[1600px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 w-full">
+      <div className="relative z-10 max-w-[1600px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 w-full -mt-8 lg:-mt-16">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
 
           {/* Left Column: Text Content */}

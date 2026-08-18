@@ -9,6 +9,7 @@ export interface OmrTest {
   examType: OmrExamType;
   totalQuestions: number;
   omrQuestions?: number;
+  numericalQuestions?: number;
   choices: number;
   marksPerCorrectAnswer: number;
   marksPerWrongAnswer: number;

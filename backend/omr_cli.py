@@ -16,12 +16,14 @@ def grade(payload: dict[str, object]) -> dict[str, object]:
     validate_layout(questions, choices)
     answers = parse_answer_key(str(payload["answer_key"]), questions, choices)
     content = base64.b64decode(str(payload["image_base64"]), validate=True)
+    numerical = int(payload.get("numerical", 0))
     result = grade_image(
         decode_document(content, str(payload.get("media_type", ""))),
         questions,
         choices,
         answers,
         str(payload.get("exam_type", "NEET")),
+        numerical,
     )
     return {
         "score": result.score,
@@ -37,11 +39,13 @@ def generate(payload: dict[str, object]) -> dict[str, str]:
     questions = int(payload["questions"])
     choices = int(payload["choices"])
     validate_layout(questions, choices)
+    numerical = int(payload.get("numerical", 0))
     pdf = generate_sheet_pdf(
         questions,
         choices,
         str(payload["title"]),
         str(payload.get("exam_type", "NEET")),
+        numerical,
     )
     return {"pdf_base64": base64.b64encode(pdf).decode("ascii")}
 

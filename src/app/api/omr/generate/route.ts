@@ -10,6 +10,7 @@ export async function GET(request: Request): Promise<Response> {
   const incoming = new URL(request.url);
   const questions = Number(incoming.searchParams.get("questions") || "20");
   const choices = Number(incoming.searchParams.get("choices") || "4");
+  const numerical = Number(incoming.searchParams.get("numerical") || "0");
   const title = incoming.searchParams.get("title") || "Vision Academy - OMR Sheet";
   const requestedExamType = incoming.searchParams.get("examType");
   const examType = requestedExamType === "JEE" || requestedExamType === "CUSTOM"
@@ -21,6 +22,7 @@ export async function GET(request: Request): Promise<Response> {
       operation: "generate",
       questions,
       choices,
+      numerical,
       title,
       exam_type: examType,
     });

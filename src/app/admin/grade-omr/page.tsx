@@ -106,6 +106,7 @@ export default function GradeOMRPage({
   // Settings for grading
   const [examType, setExamType] = useState<OmrExamType>(initialBatch.includes("NEET") ? "NEET" : "JEE");
   const [customQuestions, setCustomQuestions] = useState(20);
+  const [customNumerical, setCustomNumerical] = useState(0);
   const [customChoices, setCustomChoices] = useState(4);
   const numQuestions = examType === "JEE" ? 60 : examType === "NEET" ? 180 : customQuestions;
   const numChoices = examType === "CUSTOM" ? customChoices : 4;
@@ -122,6 +123,14 @@ export default function GradeOMRPage({
   const [numericalAnswers, setNumericalAnswers] = useState<OmrNumericalStatus[]>(
     () => new Array(15).fill("blank"),
   );
+  
+  const currentNumericalCount = selectedTestId ? 
+    (omrTests.find(t => t.id === selectedTestId)?.examType === "JEE" ? 15 : (omrTests.find(t => t.id === selectedTestId)?.numericalQuestions || 0)) 
+    : (examType === "JEE" ? 15 : (examType === "CUSTOM" ? customNumerical : 0));
+
+  useEffect(() => {
+    setNumericalAnswers(new Array(currentNumericalCount).fill("blank"));
+  }, [currentNumericalCount]);
 
   // Array of answers (1-indexed). 0 means unset.
   const [answers, setAnswers] = useState<number[]>([]);
@@ -191,7 +200,7 @@ export default function GradeOMRPage({
   const handleGeneratePdf = async () => {
     setError(null);
     try {
-      await downloadOmrSheet(numQuestions, numChoices, genTitle, examType);
+      await downloadOmrSheet(numQuestions, numChoices, genTitle, examType, examType === "CUSTOM" ? customNumerical : 0);
     } catch (error) {
       setError(error instanceof Error ? error.message : "Failed to generate the OMR sheet.");
     }
@@ -221,6 +230,7 @@ export default function GradeOMRPage({
         batch,
         examType,
         totalQuestions: numQuestions,
+        numericalQuestions: examType === "CUSTOM" ? customNumerical : 0,
         choices: numChoices,
         marksPerCorrectAnswer: marksCorrect,
         marksPerWrongAnswer: marksWrong,
@@ -257,8 +267,8 @@ export default function GradeOMRPage({
     setError(null);
 
     try {
-      const data = await gradeOmrSheet(file, numQuestions, numChoices, answers, examType);
-      setNumericalAnswers(new Array(15).fill("blank"));
+      const data = await gradeOmrSheet(file, numQuestions, numChoices, answers, examType, examType === "CUSTOM" ? customNumerical : 0);
+      setNumericalAnswers(new Array(currentNumericalCount).fill("blank"));
       setResult({
         ...data,
         image: data.graded_image_base64,
@@ -276,6 +286,7 @@ export default function GradeOMRPage({
     if (!test?.answerKey) return;
     setExamType(test.examType);
     setCustomQuestions(test.omrQuestions ?? test.totalQuestions);
+    setCustomNumerical(test.numericalQuestions || 0);
     setCustomChoices(test.choices || 4);
     setAnswers(test.answerKey);
     setTestName(test.testName);
@@ -310,7 +321,7 @@ export default function GradeOMRPage({
         testId: selectedTestId,
         studentId: selectedStudentId,
         selectedAnswers: result.selected_answers,
-        numericalAnswers: examType === "JEE" ? numericalAnswers : undefined,
+        numericalAnswers: (examType === "JEE" || (examType === "CUSTOM" && customNumerical > 0)) ? numericalAnswers : undefined,
       });
       setError(null);
       toast.success("Student OMR result saved.");
@@ -326,7 +337,7 @@ export default function GradeOMRPage({
     setFile(null);
     setPreviewUrl(null);
     setResult(null);
-    setNumericalAnswers(new Array(15).fill("blank"));
+    setNumericalAnswers(new Array(currentNumericalCount).fill("blank"));
     setError(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -346,12 +357,13 @@ export default function GradeOMRPage({
   const numericalWrong = numericalAnswers.filter((status) => status === "wrong").length;
   const numericalUnattempted = numericalAnswers.filter((status) => status === "blank").length;
 
-  const finalCorrect = (result?.correct_count ?? 0) + (examType === "JEE" ? numericalCorrect : 0);
-  const finalWrong = scannedWrong + (examType === "JEE" ? numericalWrong : 0);
-  const finalUnattempted = scannedUnattempted + (examType === "JEE" ? numericalUnattempted : 0);
+  const requiresNumerical = examType === "JEE" || (examType === "CUSTOM" && customNumerical > 0);
+  const finalCorrect = (result?.correct_count ?? 0) + (requiresNumerical ? numericalCorrect : 0);
+  const finalWrong = scannedWrong + (requiresNumerical ? numericalWrong : 0);
+  const finalUnattempted = scannedUnattempted + (requiresNumerical ? numericalUnattempted : 0);
 
   const finalMarks = finalCorrect * marksCorrect - finalWrong * marksWrong;
-  const totalScoredQuestions = examType === "JEE" ? 75 : numQuestions;
+  const totalScoredQuestions = examType === "JEE" ? 75 : numQuestions + (examType === "CUSTOM" ? customNumerical : 0);
   const maxMarks = totalScoredQuestions * marksCorrect;
   const finalPercentage = maxMarks > 0 ? (finalMarks / maxMarks) * 100 : 0;
 
@@ -380,7 +392,7 @@ export default function GradeOMRPage({
                   ? "JEE: 60 MCQs with 15 numerical questions"
                   : examType === "NEET"
                     ? "NEET: 180 MCQs"
-                    : `Custom: ${numQuestions} questions with ${numChoices} choices`}
+                    : `Custom: ${numQuestions} MCQs, ${customNumerical} Integers`}
               </p>
             </div>
           </div>
@@ -405,33 +417,44 @@ export default function GradeOMRPage({
             </div>
             {examType === "CUSTOM" && (
               <>
-                <label className="flex flex-col w-full sm:w-24 text-xs font-semibold text-gray-600">
-                  Questions
-                  <input
-                    type="number"
-                    min="1"
-                    max="180"
-                    value={customQuestions}
-                    onChange={(event) => {
-                      setCustomQuestions(Math.min(180, Math.max(1, Number(event.target.value))));
-                      setAnswers([]);
-                    }}
-                    className="mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  />
-                </label>
-                <label className="flex flex-col w-full sm:w-20 text-xs font-semibold text-gray-600">
-                  Choices
-                  <select
-                    value={customChoices}
-                    onChange={(event) => {
-                      setCustomChoices(Number(event.target.value));
-                      setAnswers([]);
-                    }}
-                    className="mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  >
-                    {[2, 3, 4, 5].map((count) => <option key={count}>{count}</option>)}
-                  </select>
-                </label>
+                        <div className="grid grid-cols-3 gap-3">
+                          <label className="text-xs font-semibold text-gray-600">
+                            MCQs
+                            <input
+                              type="number"
+                              min="1"
+                              max="180"
+                              value={customQuestions}
+                              onChange={(event) => {
+                                setCustomQuestions(Math.min(180, Math.max(1, Number(event.target.value))));
+                                setAnswers([]);
+                              }}
+                              className="mt-1 w-full border border-gray-300 rounded-xl px-3 py-2 text-base"
+                            />
+                          </label>
+                          <label className="text-xs font-semibold text-gray-600 block">
+                            Integers
+                            <input
+                              type="number"
+                              min="0"
+                              max="50"
+                              value={customNumerical}
+                              onChange={(event) => {
+                                setCustomNumerical(Math.min(50, Math.max(0, Number(event.target.value))));
+                              }}
+                              className="mt-1 w-full border border-gray-300 rounded-xl px-3 py-2 text-base"
+                            />
+                          </label>
+                          <label className="text-xs font-semibold text-gray-600 block">
+                            Choices
+                            <PremiumSelect
+                              value={customChoices.toString()}
+                              onChange={(val) => { setCustomChoices(Number(val)); setAnswers([]); }}
+                              options={[2, 3, 4, 5].map(c => ({ label: c.toString(), value: c.toString() }))}
+                              className="mt-1"
+                            />
+                          </label>
+                        </div>
               </>
             )}
             <div className="flex flex-col w-full sm:w-auto">
@@ -544,9 +567,9 @@ export default function GradeOMRPage({
                         </button>
                       </div>
                       {examType === "CUSTOM" && (
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-3 gap-3">
                           <label className="text-xs font-semibold text-gray-600">
-                            Questions
+                            MCQs
                             <input
                               type="number"
                               min="1"
@@ -555,6 +578,19 @@ export default function GradeOMRPage({
                               onChange={(event) => {
                                 setCustomQuestions(Math.min(180, Math.max(1, Number(event.target.value))));
                                 setAnswers([]);
+                              }}
+                              className="mt-1 w-full border border-gray-300 rounded-xl px-3 py-2 text-base"
+                            />
+                          </label>
+                          <label className="text-xs font-semibold text-gray-600 block">
+                            Integers
+                            <input
+                              type="number"
+                              min="0"
+                              max="50"
+                              value={customNumerical}
+                              onChange={(event) => {
+                                setCustomNumerical(Math.min(50, Math.max(0, Number(event.target.value))));
                               }}
                               className="mt-1 w-full border border-gray-300 rounded-xl px-3 py-2 text-base"
                             />
@@ -913,7 +949,7 @@ export default function GradeOMRPage({
                       </div>
 
                       <div className="flex-grow flex flex-col min-h-0">
-                        {examType === "JEE" && (
+                        {(examType === "JEE" || (examType === "CUSTOM" && customNumerical > 0)) && (
                           <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 shrink-0">
                             <div className="flex items-center justify-between mb-2">
                               <div>
@@ -925,7 +961,7 @@ export default function GradeOMRPage({
                               </p>
                             </div>
                             <div className="grid grid-cols-3 gap-2">
-                              {JEE_NUMERICAL_QUESTIONS.map((questionNumber, index) => (
+                              {(examType === "JEE" ? JEE_NUMERICAL_QUESTIONS : Array.from({ length: customNumerical }, (_, i) => numQuestions + i + 1)).map((questionNumber, index) => (
                                 <label key={questionNumber} className="text-[11px] font-bold text-gray-700">
                                   Q{questionNumber}
                                   <select
@@ -951,10 +987,6 @@ export default function GradeOMRPage({
                         <div className="border border-gray-200 rounded-xl bg-gray-50 p-4 mb-6 max-h-64 overflow-y-auto custom-scrollbar shrink-0">
                           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
                             {omrQuestionNumbers(examType, numQuestions).map((qNum, i) => {
-                              // If it's a JEE numerical question, its index isn't directly mapped to `result.selected_answers`.
-                              // Wait, the regular selected_answers only has 60 questions for JEE.
-                              // `omrQuestionNumbers` returns 75 numbers for JEE (including the numerical ones).
-                              // In this grid, let's just handle the OMR part for now, or map it.
                               const isNumerical = examType === "JEE" && JEE_NUMERICAL_QUESTIONS.includes(qNum);
                               let status = "";
                               let studentChoiceStr = "";
@@ -966,8 +998,7 @@ export default function GradeOMRPage({
                                 status = numStat === "correct" ? "bg-green-100 text-green-800" : numStat === "wrong" ? "bg-red-100 text-red-800" : "bg-slate-200 text-slate-800";
                                 studentChoiceStr = numStat === "correct" ? "✓" : numStat === "wrong" ? "✗" : "-";
                               } else {
-                                // For JEE, we need to map the question index. `qNum` 1-20 -> idx 0-19.
-                                // `qNum` 26-45 -> idx 20-39. `qNum` 51-70 -> idx 40-59.
+                                // For JEE, we map MCQ question number to index. For CUSTOM, it's just `i`.
                                 let idx = i;
                                 if (examType === "JEE") {
                                   if (qNum >= 1 && qNum <= 20) idx = qNum - 1;

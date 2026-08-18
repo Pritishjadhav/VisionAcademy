@@ -5,10 +5,8 @@ import { useState, useEffect } from "react";
 import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import { Button } from "@/components/ui/Button";
-import { Plus, User, GraduationCap, ChevronRight, CheckSquare } from "lucide-react";
+import { Plus, User, GraduationCap, ChevronRight, CheckSquare, BookOpen, Shield } from "lucide-react";
 import { StudentFormModal } from "@/components/admin/StudentFormModal";
-import { AdminManagement } from "@/components/admin/AdminManagement";
-import { FacultyManagement } from "@/components/admin/FacultyManagement";
 import toast from "react-hot-toast";
 import Link from "next/link";
 
@@ -140,8 +138,42 @@ export default function AdminDashboard() {
         student={null}
       />
       
-      <FacultyManagement />
-      <AdminManagement />
+      <div className="mt-12">
+        <h2 className="text-2xl font-bold text-slate-900 mb-6">Staff Management</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Link 
+            href={`/admin/dashboard/faculty`} 
+            className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex items-center justify-between hover:shadow-md hover:border-brand-blue/30 transition-all group cursor-pointer"
+          >
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-slate-50 rounded-xl group-hover:bg-brand-blue/5 transition-colors">
+                <BookOpen className="text-brand-blue" size={28} />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-slate-800">Faculty Management</h2>
+                <p className="text-slate-500 mt-1">Manage faculty accounts</p>
+              </div>
+            </div>
+            <ChevronRight className="text-slate-300 group-hover:text-brand-blue transition-colors" />
+          </Link>
+
+          <Link 
+            href={`/admin/dashboard/admin-management`} 
+            className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex items-center justify-between hover:shadow-md hover:border-brand-orange/30 transition-all group cursor-pointer"
+          >
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-slate-50 rounded-xl group-hover:bg-brand-orange/5 transition-colors">
+                <Shield className="text-brand-orange" size={28} />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-slate-800">Admin Management</h2>
+                <p className="text-slate-500 mt-1">Manage admin access</p>
+              </div>
+            </div>
+            <ChevronRight className="text-slate-300 group-hover:text-brand-orange transition-colors" />
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }

@@ -115,7 +115,7 @@ export function Navbar() {
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 flex items-center ${isScrolled ? "glass shadow-sm h-16" : "bg-transparent h-20"
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 flex items-center bg-white ${isScrolled ? "shadow-md h-16" : "shadow-sm h-20"
         }`}
     >
       <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16">
@@ -371,7 +371,7 @@ export function Navbar() {
                     )}
                   </div>
                 ))}
-                
+
                 {!user && (
                   <div className="mt-4 border-t border-slate-100 pt-4">
                     <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
