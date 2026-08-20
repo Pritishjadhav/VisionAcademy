@@ -125,7 +125,7 @@ export default function LiveTestPage() {
           setTimeLeft(initialTimeLeft);
           setAnswers(initialAnswers);
         } else {
-          if (attemptSnap.exists()) {
+          if (attemptSnap && attemptSnap.exists()) {
             const aData = attemptSnap.data();
             if (aData.status !== 'active') {
               toast.error("You cannot resume a submitted test.");

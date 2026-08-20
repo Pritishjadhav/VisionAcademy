@@ -20,13 +20,17 @@ export class OmrEngineError extends Error {
   }
 }
 
+function getBackendDir(): string {
+  // Use array join to hide the path from Turbopack static analysis
+  return [process.cwd(), "backend"].join(path.sep);
+}
+
 function pythonExecutable(): string {
-  const executable = path.join(
-    process.cwd(),
-    "backend",
-    ".venv",
-    process.platform === "win32" ? "Scripts/python.exe" : "bin/python",
-  );
+  const isWin = process.platform === "win32";
+  const executable = isWin 
+    ? [getBackendDir(), ".venv", "Scripts", "python.exe"].join(path.sep)
+    : [getBackendDir(), ".venv", "bin", "python"].join(path.sep);
+
   if (!existsSync(executable)) {
     throw new OmrEngineError(
       "The bundled OMR runtime is not installed. Stop and run `npm run dev` again.",
@@ -39,8 +43,11 @@ function pythonExecutable(): string {
 
 export function runOmrEngine<T>(payload: Record<string, unknown>): Promise<T> {
   return new Promise((resolve, reject) => {
-    const child = spawn(pythonExecutable(), [path.join(process.cwd(), "backend", "omr_cli.py")], {
-      cwd: path.join(process.cwd(), "backend"),
+    const backendDir = getBackendDir();
+    const cliPath = [backendDir, "omr_cli.py"].join(path.sep);
+    
+    const child = spawn(pythonExecutable(), [cliPath], {
+      cwd: backendDir,
       stdio: ["pipe", "pipe", "pipe"],
       windowsHide: true,
     });
