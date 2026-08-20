@@ -8,6 +8,7 @@ import { Search, Trash2, Edit, Mail, Phone, ArrowLeft, User } from "lucide-react
 import { StudentFormModal } from "@/components/admin/StudentFormModal";
 import { AttendanceManagerModal } from "@/components/admin/AttendanceManagerModal";
 import { StudentAttendanceHistoryModal } from "@/components/admin/StudentAttendanceHistoryModal";
+import { ScheduleTimetableModal } from "@/components/admin/ScheduleTimetableModal";
 import toast from "react-hot-toast";
 import { deleteStudentUser } from "@/actions/users";
 import { useRouter } from "next/navigation";
@@ -44,6 +45,7 @@ export default function BatchPage({ params }: { params: Promise<{ batchId: strin
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAttendanceManagerOpen, setIsAttendanceManagerOpen] = useState(false);
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [viewingHistoryStudent, setViewingHistoryStudent] = useState<Student | null>(null);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
@@ -148,6 +150,9 @@ export default function BatchPage({ params }: { params: Promise<{ batchId: strin
             </Button>
             <Button variant="outline" onClick={() => router.push(`/admin/dashboard/tests?batch=${encodeURIComponent(batchName)}`)}>
               Schedule Online Test
+            </Button>
+            <Button variant="outline" onClick={() => setIsScheduleModalOpen(true)}>
+              Schedule Time Table
             </Button>
             <Button variant="outline" onClick={() => router.push(`/admin/dashboard/batch/${encodeURIComponent(batchName)}/theory`)}>
               Add Theory Mark
@@ -353,6 +358,12 @@ export default function BatchPage({ params }: { params: Promise<{ batchId: strin
         isOpen={isHistoryModalOpen}
         onClose={() => setIsHistoryModalOpen(false)}
         student={viewingHistoryStudent}
+      />
+
+      <ScheduleTimetableModal
+        isOpen={isScheduleModalOpen}
+        onClose={() => setIsScheduleModalOpen(false)}
+        batchName={batchName}
       />
     </div>
   );

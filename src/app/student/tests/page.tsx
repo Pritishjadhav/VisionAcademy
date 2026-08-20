@@ -10,6 +10,7 @@ import Link from "next/link";
 import { Test, TestResult } from "@/lib/types/test";
 import { format } from "date-fns";
 import { TestRulesModal } from "@/components/student/TestRulesModal";
+import { OnlineTestsPerformanceChart } from "@/components/student/OnlineTestsPerformanceChart";
 
 export default function StudentTestsPage() {
   const { user, dbUser } = useAuth();
@@ -82,10 +83,17 @@ export default function StudentTestsPage() {
     };
   }, [user, dbUser]);
 
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 2000);
+    return () => clearInterval(timer);
+  }, []);
+
   useEffect(() => {
     if (!tests || !results || !attempts) return;
 
-    const now = new Date();
+    const now = currentTime;
     const currentUpcoming: Test[] = [];
     const currentLive: Test[] = [];
     const currentCompleted: Test[] = [];
@@ -132,7 +140,7 @@ export default function StudentTestsPage() {
     setUpcoming(currentUpcoming);
     setLive(currentLive);
     setCompleted(currentCompleted);
-  }, [tests, results, attempts]);
+  }, [tests, results, attempts, currentTime]);
 
   if (loading) {
     return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-brand-blue" size={40} /></div>;
@@ -221,6 +229,10 @@ export default function StudentTestsPage() {
         <h1 className="text-3xl font-bold text-slate-900">Online Tests</h1>
         <p className="text-slate-500">View and manage your tests for {(dbUser?.batch as string)}</p>
       </div>
+
+      {completed.length > 0 && Object.keys(results).length > 0 && (
+        <OnlineTestsPerformanceChart tests={completed} results={results} />
+      )}
 
       {tests.length === 0 ? (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-12 text-center flex flex-col items-center">

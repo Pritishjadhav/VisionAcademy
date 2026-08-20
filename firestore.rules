@@ -51,6 +51,14 @@ service cloud.firestore {
       allow read, write: if isAdminOrSuperAdmin();
     }
 
+    // Faculty Lectures Collection
+    match /facultyLectures/{lectureId} {
+      // Admins and Super Admins can manage all lecture records
+      allow read, write: if isAdminOrSuperAdmin();
+      // Faculty can only read their own lecture records
+      allow read: if isAuthenticated() && resource.data.facultyId == request.auth.uid;
+    }
+
     // Parents Collection
     match /parents/{parentId} {
       // A parent can read their own data
@@ -189,6 +197,11 @@ service cloud.firestore {
 
     match /resumeHistory/{historyId} {
       allow read, write: if isAdminOrSuperAdmin();
+    }
+    
+    match /timetables/{timetableId} {
+      allow read, write: if isAdminOrSuperAdmin();
+      allow read: if isAuthenticated(); 
     }
     
   }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@/context/AuthContext";
-import { Loader2, CalendarCheck, FileText, BookOpen, DollarSign, ListChecks } from "lucide-react";
+import { Loader2, CalendarCheck, FileText, BookOpen, DollarSign, ListChecks, Clock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -26,6 +26,10 @@ export default function StudentDashboard() {
   const [feesLoading, setFeesLoading] = useState(true);
 
   const [statsLoading, setStatsLoading] = useState(true);
+
+  const [batchName, setBatchName] = useState<string | null>(null);
+  const [todaySchedule, setTodaySchedule] = useState<any[]>([]);
+  const [scheduleLoading, setScheduleLoading] = useState(true);
 
   useEffect(() => {
     if (!loading) {
@@ -70,6 +74,7 @@ export default function StudentDashboard() {
         const studentDoc = await getDoc(doc(db, "students", user.uid));
         if (studentDoc.exists()) {
           setTotalFees(studentDoc.data().totalFees || 0);
+          setBatchName(studentDoc.data().batch || null);
         }
 
         const feesQ = query(collection(db, "feePayments"), where("studentId", "==", user.uid));
@@ -88,6 +93,36 @@ export default function StudentDashboard() {
       fetchFees();
     }
   }, [user?.uid, role]);
+
+  useEffect(() => {
+    async function fetchSchedule() {
+      if (!batchName) {
+        setScheduleLoading(false);
+        return;
+      }
+      try {
+        const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+        const q = query(
+          collection(db, "timetables"),
+          where("batchId", "==", batchName)
+        );
+        const snapshot = await getDocs(q);
+        let schedules = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        // Filter client-side to avoid requiring composite indexes
+        schedules = schedules.filter((s: any) => s.date === today);
+        
+        schedules.sort((a: any, b: any) => a.time.localeCompare(b.time)); // simplistic sort
+        setTodaySchedule(schedules);
+      } catch (error) {
+        console.error("Error fetching schedule:", error);
+      } finally {
+        setScheduleLoading(false);
+      }
+    }
+
+    fetchSchedule();
+  }, [batchName]);
 
   if (loading || !user || role !== "student") {
     return (
@@ -115,6 +150,23 @@ export default function StudentDashboard() {
         </p>
       </div>
       
+      {!scheduleLoading && todaySchedule.length > 0 && (
+        <div className="mb-8 bg-gradient-to-r from-brand-blue/10 to-brand-orange/10 rounded-2xl p-6 border border-brand-blue/20 shadow-sm">
+          <div className="flex items-center gap-3 mb-4">
+            <Clock className="text-brand-blue" size={24} />
+            <h2 className="text-xl font-bold text-slate-900">Today's Schedule</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {todaySchedule.map((schedule) => (
+              <div key={schedule.id} className="bg-white/80 backdrop-blur-sm rounded-xl p-4 border border-white/50 shadow-sm flex flex-col justify-center">
+                <span className="text-sm font-semibold text-brand-orange mb-1">{schedule.time}</span>
+                <span className="font-bold text-slate-900 text-lg">{schedule.subject}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* Attendance Card */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-md transition-shadow">

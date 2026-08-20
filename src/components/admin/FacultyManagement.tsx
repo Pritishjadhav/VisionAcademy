@@ -5,8 +5,9 @@ import { useState, useEffect } from "react";
 import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import { Button } from "@/components/ui/Button";
-import { Plus, Search, BookOpen, CheckCircle, XCircle, Trash2, User } from "lucide-react";
+import { Plus, Search, BookOpen, CheckCircle, XCircle, Trash2, User, Eye } from "lucide-react";
 import toast from "react-hot-toast";
+import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { createFacultyUser, deleteFacultyUser } from "@/actions/faculty";
 import { getRequiredIdToken } from "@/lib/auth-token";
@@ -179,20 +180,20 @@ export function FacultyManagement() {
                 </tr>
               ) : (
                 filteredFaculty.map(f => (
-                  <tr key={f.id} className="hover:bg-slate-50/50 transition-colors">
+                  <tr key={f.id} className="hover:bg-orange-50 transition-colors group">
                     <td className="py-4 px-6">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-200 shrink-0 relative">
+                      <Link href={`/admin/dashboard/faculty/${f.id}`} className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-200 shrink-0 relative group-hover:border-brand-orange transition-colors">
                           {f.photoUrl ? (
                             <Image src={f.photoUrl} alt={f.name || "Faculty"} fill className="object-cover" />
                           ) : (
-                            <User className="text-slate-400" size={20} />
+                            <User className="text-slate-400 group-hover:text-brand-orange transition-colors" size={20} />
                           )}
                         </div>
-                        <span className="font-medium text-slate-900">
-                          {f.name || <span className="text-slate-400 italic font-normal">Not set</span>}
+                        <span className="font-medium text-slate-900 group-hover:text-brand-orange transition-colors">
+                          {f.name || <span className="text-slate-400 italic font-normal group-hover:text-brand-orange transition-colors">Not set</span>}
                         </span>
-                      </div>
+                      </Link>
                     </td>
                     <td className="py-4 px-6 text-slate-600">
                       <a href={`mailto:${f.email}`} className="hover:text-brand-orange transition-colors">
@@ -226,6 +227,13 @@ export function FacultyManagement() {
                       </span>
                     </td>
                     <td className="py-4 px-6 flex items-center justify-end gap-2">
+                      <Link
+                        href={`/admin/dashboard/faculty/${f.id}`}
+                        className="px-3 py-1.5 rounded-lg text-sm font-medium text-brand-blue hover:bg-blue-50 transition-colors flex items-center gap-1"
+                      >
+                        <Eye size={16} />
+                        <span className="hidden sm:inline">Profile</span>
+                      </Link>
                       <button 
                         onClick={() => handleToggleEnable(f.id, f.enabled)}
                         className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${

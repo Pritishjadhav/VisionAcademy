@@ -7,6 +7,7 @@ import { db } from "@/lib/firebase/config";
 import { ArrowLeft, BookOpen, Calendar, Target, Award, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import { TheoryPerformanceChart } from "@/components/student/TheoryPerformanceChart";
 
 interface TheoryMark {
   id: string;
@@ -131,6 +132,10 @@ export default function StudentTheoryMarksPage() {
               </div>
             </div>
           </div>
+
+          {marks.length > 0 && (
+            <TheoryPerformanceChart marks={marks} />
+          )}
 
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
             <div className="overflow-x-auto">

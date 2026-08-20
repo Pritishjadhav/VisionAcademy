@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { collection, query, where, getDocs, doc, deleteDoc, setDoc, addDoc, serverTimestamp, getDoc } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, deleteDoc, setDoc, addDoc, serverTimestamp, getDoc, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import { Button } from "@/components/ui/Button";
 import { ArrowLeft, ShieldAlert, AlertTriangle, RefreshCw, PlayCircle, Loader2 } from "lucide-react";
@@ -25,53 +25,66 @@ export default function AdminMonitoringPage() {
   const [isResuming, setIsResuming] = useState(false);
 
   useEffect(() => {
-    fetchData();
-  }, [testId]);
+    if (!testId) return;
 
-  const fetchData = async () => {
     setLoading(true);
-    try {
-      const testSnap = await getDoc(doc(db, "tests", testId));
+    
+    // Fetch test name once
+    getDoc(doc(db, "tests", testId)).then(testSnap => {
       if (testSnap.exists()) {
         setTestName(testSnap.data().testName);
       }
+    });
 
-      const attQ = query(collection(db, "testAttempts"), where("testId", "==", testId));
-      const attSnap = await getDocs(attQ);
-      const attData = attSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-      const violQ = query(collection(db, "violationLogs"), where("testId", "==", testId));
-      const violSnap = await getDocs(violQ);
-      const violData = violSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-      // Fetch students
-      const studentIds = Array.from(new Set(attData.map((a: any) => a.studentId)));
-      const stuMap: Record<string, any> = {};
-      if (studentIds.length > 0) {
-        // chunk in case > 10
-        const chunks = [];
-        for (let i = 0; i < studentIds.length; i += 10) {
-          chunks.push(studentIds.slice(i, i + 10));
-        }
-        for (const chunk of chunks) {
-          const sQ = query(collection(db, "students"), where("__name__", "in", chunk));
-          const sSnap = await getDocs(sQ);
-          sSnap.forEach(d => {
-            stuMap[d.id] = d.data();
-          });
-        }
-      }
+    const attQ = query(collection(db, "testAttempts"), where("testId", "==", testId));
+    const unsubscribeAttempts = onSnapshot(attQ, async (snap) => {
+      const attData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      
+      // Fetch missing students
+      setStudents(prevStudents => {
+        const fetchMissing = async () => {
+          const studentIds = Array.from(new Set(attData.map((a: any) => a.studentId)));
+          const missingIds = studentIds.filter(id => !prevStudents[id]);
+          
+          if (missingIds.length > 0) {
+            const stuMap = { ...prevStudents };
+            const chunks = [];
+            for (let i = 0; i < missingIds.length; i += 10) {
+              chunks.push(missingIds.slice(i, i + 10));
+            }
+            for (const chunk of chunks) {
+              const sQ = query(collection(db, "students"), where("__name__", "in", chunk));
+              const sSnap = await getDocs(sQ);
+              sSnap.forEach(d => {
+                stuMap[d.id] = d.data();
+              });
+            }
+            setStudents(stuMap);
+          }
+        };
+        fetchMissing();
+        return prevStudents;
+      });
 
       setAttempts(attData);
-      setViolations(violData);
-      setStudents(stuMap);
-    } catch (error) {
+      setLoading(false);
+    }, (error) => {
       console.error(error);
       toast.error("Failed to load monitoring data");
-    } finally {
       setLoading(false);
-    }
-  };
+    });
+
+    const violQ = query(collection(db, "violationLogs"), where("testId", "==", testId));
+    const unsubscribeViolations = onSnapshot(violQ, (snap) => {
+      const violData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setViolations(violData);
+    });
+
+    return () => {
+      unsubscribeAttempts();
+      unsubscribeViolations();
+    };
+  }, [testId]);
 
   const handleResumeTest = async (type: 'Continue' | 'Restart') => {
     if (!selectedStudent || !user || !dbUser) return;
@@ -119,7 +132,6 @@ export default function AdminMonitoringPage() {
 
       toast.success(`Test access restored (${type}). The student can now re-enter the test.`);
       setSelectedStudent(null);
-      fetchData();
     } catch (error) {
       console.error("Resume error:", error);
       toast.error("Failed to restore test access.");
@@ -143,9 +155,6 @@ export default function AdminMonitoringPage() {
           </h1>
           <p className="text-slate-500">{testName}</p>
         </div>
-        <Button variant="outline" className="ml-auto" onClick={fetchData}>
-          <RefreshCw size={16} className="mr-2" /> Refresh
-        </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

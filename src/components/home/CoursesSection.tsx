@@ -38,7 +38,7 @@ const courses = [
       "11th & 12th Board Syllabus",
       "Evening Batch Timings",
       "Weekly Performance Tests",
-      "Comprehensive Digital Notes",
+      "Regular Theory Test",
       "Career & Personal Guidance",
     ],
     highlighted: false,

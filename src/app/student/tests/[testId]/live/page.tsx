@@ -54,25 +54,32 @@ export default function LiveTestPage() {
     async function initTest() {
       if (!testId || !user) return;
       try {
-        const tSnap = await getDoc(doc(db, "tests", testId));
+        // Run all queries in parallel for maximum speed
+        const sessionKey = isPractice ? `${testId}_${user.uid}_practice` : `${testId}_${user.uid}`;
+        const attemptCollection = "testAttempts";
+        const sessionKeyAttempt = `${testId}_${user.uid}`;
+        const attemptRef = doc(db, attemptCollection, sessionKeyAttempt);
+
+        const [tSnap, qSnap, resSnap, sessionDoc, attemptSnap] = await Promise.all([
+          getDoc(doc(db, "tests", testId)),
+          getDocs(query(collection(db, "questions"), where("testId", "==", testId))),
+          !isPractice ? getDocs(query(collection(db, "results"), where("testId", "==", testId), where("studentId", "==", user.uid))) : Promise.resolve(null),
+          getDoc(doc(db, "activeSessions", sessionKey)),
+          !isPractice ? getDoc(doc(db, "testAttempts", sessionKeyAttempt)) : Promise.resolve(null)
+        ]);
+
         if (!tSnap.exists()) throw new Error("Test not found");
         const tData = { id: tSnap.id, ...tSnap.data() } as Test;
         setTest(tData);
 
         // Check if already submitted
-        if (!isPractice) {
-          const resQ = query(collection(db, "results"), where("testId", "==", testId), where("studentId", "==", user.uid));
-          const resSnap = await getDocs(resQ);
-          if (!resSnap.empty) {
-            toast.error("You have already submitted this test.");
-            router.replace(`/student/tests/${testId}/result`);
-            return;
-          }
+        if (!isPractice && resSnap && !resSnap.empty) {
+          toast.error("You have already submitted this test.");
+          router.replace(`/student/tests/${testId}/result`);
+          return;
         }
 
-        // Fetch questions
-        const qQ = query(collection(db, "questions"), where("testId", "==", testId));
-        const qSnap = await getDocs(qQ);
+        // Setup questions
         const qs = qSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Question[];
         qs.sort((a, b) => a.questionNumber - b.questionNumber);
         setQuestions(qs);
@@ -106,19 +113,11 @@ export default function LiveTestPage() {
           return;
         }
 
-        const sessionKey = isPractice ? `${testId}_${user.uid}_practice` : `${testId}_${user.uid}`;
-        const sessionDoc = await getDoc(doc(db, "activeSessions", sessionKey));
         if (!sessionDoc.exists() || sessionDoc.data().sessionId !== sessionId) {
           toast.error("Test is active on another device or session expired.");
           router.replace(`/student/tests`);
           return;
         }
-
-        // 2. Initialize or Resume Test Attempt
-        const attemptCollection = "testAttempts";
-        const sessionKeyAttempt = `${testId}_${user.uid}`;
-        const attemptRef = doc(db, attemptCollection, sessionKeyAttempt);
-        const attemptSnap = await getDoc(attemptRef);
 
         const initialTimeLeft = isPractice ? durationLimit : Math.min(remaining, durationLimit);
 
