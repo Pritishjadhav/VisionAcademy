@@ -4,7 +4,7 @@ import { useState, useEffect, use } from "react";
 import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import { Button } from "@/components/ui/Button";
-import { ArrowLeft, User, Phone, Mail, Calendar, BookOpen, FileText, CheckCircle, XCircle, Loader2, BarChart, DollarSign, Plus, Edit3, Download, FileCheck2, ChevronRight } from "lucide-react";
+import { ArrowLeft, User, Phone, Mail, Calendar, BookOpen, FileText, CheckCircle, XCircle, Loader2, BarChart, IndianRupee, Plus, Edit3, Download, FileCheck2, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
@@ -492,7 +492,7 @@ export default function StudentProfilePage({ params }: { params: Promise<{ batch
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                <DollarSign className="text-brand-blue" />
+                <IndianRupee className="text-brand-blue" strokeWidth={3} />
                 Fees Management
               </h2>
             </div>

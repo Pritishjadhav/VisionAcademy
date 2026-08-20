@@ -167,7 +167,7 @@ export function StudentFormModal({ isOpen, onClose, onSuccess, student }: Props)
                 <form id="student-form" onSubmit={handleSubmit} className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <label className="text-sm font-medium text-slate-700">Full Name *</label>
+                      <label className="text-sm font-medium text-slate-700">Full Name</label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                           <User size={18} />
@@ -178,7 +178,6 @@ export function StudentFormModal({ isOpen, onClose, onSuccess, student }: Props)
                           onChange={(e) => setName(e.target.value)}
                           className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-blue/50 focus:border-brand-blue outline-none transition-all"
                           placeholder="John Doe"
-                          required
                         />
                       </div>
                       <p className="text-xs font-bold text-red-600 ml-1 bg-red-50 inline-block px-2 py-1 rounded-md mt-1">Format: Last Name First Name Middle Name</p>

@@ -25,7 +25,7 @@ export async function createStudentUser(idToken: string, data: { name: string, m
       userRecord = await adminAuth.createUser({
         email,
         password,
-        displayName: data.name,
+        displayName: data.name || "Student",
       });
     } catch (authError: unknown) {
       if (authError && typeof authError === 'object' && 'code' in authError && (authError as {code: string}).code === 'auth/email-already-exists') {
@@ -61,7 +61,7 @@ export async function createStudentUser(idToken: string, data: { name: string, m
         const parentRecord = await adminAuth.createUser({
           email: parentEmail,
           password: parentPassword,
-          displayName: "Parent of " + data.name,
+          displayName: "Parent of " + (data.name || "Student"),
         });
         parentUid = parentRecord.uid;
         

@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@/context/AuthContext";
-import { Loader2, CalendarCheck, FileText, BookOpen, DollarSign, ListChecks, ArrowLeft } from "lucide-react";
+import { Loader2, CalendarCheck, FileText, BookOpen, IndianRupee, ListChecks, ArrowLeft } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -219,7 +219,7 @@ export default function ParentStudentDashboard() {
           <div className="p-6 flex flex-col flex-1">
             <div className="flex items-center gap-4 mb-4">
               <div className="w-12 h-12 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-green-600">
-                <DollarSign size={24} />
+                <IndianRupee size={24} strokeWidth={3} />
               </div>
               <div>
                 <h3 className="text-lg font-bold text-slate-900">Fees Summary</h3>

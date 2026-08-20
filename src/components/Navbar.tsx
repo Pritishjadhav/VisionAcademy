@@ -166,9 +166,11 @@ export function Navbar() {
                   <button
                     onClick={() => setDropdownOpen(!dropdownOpen)}
                     onBlur={() => setTimeout(() => setDropdownOpen(false), 200)}
-                    className="relative w-9 h-9 rounded-full bg-white flex items-center justify-center z-10 transition-transform duration-300 group-hover:scale-105 shadow-sm p-[2px]"
+                    className="relative w-9 h-9 rounded-full bg-white flex items-center justify-center z-10 transition-transform duration-300 group-hover:scale-105 shadow-sm overflow-hidden"
                   >
-                    {(dbUser as any)?.photoUrl || user?.photoURL ? (
+                    {role === "admin" || role === "super_admin" ? (
+                      <img src="/logo.jpeg" alt="Admin Profile" className="w-full h-full object-contain scale-[1.15] bg-white" />
+                    ) : (dbUser as any)?.photoUrl || user?.photoURL ? (
                       <img src={(dbUser as any)?.photoUrl || user?.photoURL} alt="Profile" className="w-full h-full object-cover rounded-full" />
                     ) : (
                       <div className="w-full h-full rounded-full bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center border border-slate-200/50">
@@ -194,7 +196,7 @@ export function Navbar() {
                       {role === "student" && (
                         <Link href="/student/profile" className="flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors">
                           <User size={16} />
-                          User Profile
+                          Student Profile
                         </Link>
                       )}
                       {role === "faculty" && (
@@ -241,9 +243,11 @@ export function Navbar() {
                   <button
                     onClick={() => setMobileDropdownOpen(!mobileDropdownOpen)}
                     onBlur={() => setTimeout(() => setMobileDropdownOpen(false), 200)}
-                    className="relative w-8 h-8 rounded-full bg-white flex items-center justify-center z-10 transition-transform duration-300 group-hover:scale-105 shadow-sm p-[2px]"
+                    className="relative w-8 h-8 rounded-full bg-white flex items-center justify-center z-10 transition-transform duration-300 group-hover:scale-105 shadow-sm overflow-hidden"
                   >
-                    {(dbUser as any)?.photoUrl || user?.photoURL ? (
+                    {role === "admin" || role === "super_admin" ? (
+                      <img src="/logo.jpeg" alt="Admin Profile" className="w-full h-full object-contain scale-[1.15] bg-white" />
+                    ) : (dbUser as any)?.photoUrl || user?.photoURL ? (
                       <img src={(dbUser as any)?.photoUrl || user?.photoURL} alt="Profile" className="w-full h-full object-cover rounded-full" />
                     ) : (
                       <div className="w-full h-full rounded-full bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center border border-slate-200/50">
@@ -269,7 +273,7 @@ export function Navbar() {
                       {role === "student" && (
                         <Link href="/student/profile" className="flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
                           <User size={16} />
-                          User Profile
+                          Student Profile
                         </Link>
                       )}
                       {role === "faculty" && (

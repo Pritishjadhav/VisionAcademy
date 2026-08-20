@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, DollarSign } from "lucide-react";
+import { X, IndianRupee } from "lucide-react";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import { Button } from "@/components/ui/Button";
@@ -74,8 +74,8 @@ export function EditTotalFeesModal({ isOpen, onClose, studentId, studentName, cu
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-slate-700">Total Fees Amount (₹) *</label>
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                <DollarSign size={18} />
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                <IndianRupee size={18} strokeWidth={3} />
               </div>
               <input
                 type="number"

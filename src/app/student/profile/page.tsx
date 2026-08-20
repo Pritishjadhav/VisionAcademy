@@ -229,7 +229,7 @@ export default function StudentProfilePage() {
       <div className="max-w-3xl mx-auto">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">User Profile</h1>
+            <h1 className="text-3xl font-bold text-slate-900">Student Profile</h1>
             <p className="text-slate-500">Manage your personal and academic information.</p>
           </div>
           {!isEditing && (

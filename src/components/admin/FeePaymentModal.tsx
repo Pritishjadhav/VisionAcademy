@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, DollarSign, Calendar, FileText, AlignLeft } from "lucide-react";
+import { X, IndianRupee, Calendar, FileText, AlignLeft } from "lucide-react";
 import { collection, addDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import { Button } from "@/components/ui/Button";
@@ -93,7 +93,7 @@ export function FeePaymentModal({ isOpen, onClose, studentId, studentName, onSuc
             <label className="text-sm font-medium text-slate-700">Amount Paid (₹) *</label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                <DollarSign size={18} />
+                <IndianRupee size={18} strokeWidth={3} />
               </div>
               <input
                 type="number"

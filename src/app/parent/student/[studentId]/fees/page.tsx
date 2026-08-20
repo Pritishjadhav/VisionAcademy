@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { collection, query, where, getDoc, doc, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import { useAuth } from "@/context/AuthContext";
-import { Loader2, ArrowLeft, DollarSign, Calendar as CalendarIcon, FileText } from "lucide-react";
+import { Loader2, ArrowLeft, IndianRupee, Calendar as CalendarIcon, FileText } from "lucide-react";
 import Link from "next/link";
 
 interface FeePayment {
@@ -100,7 +100,7 @@ export default function StudentFeesPage() {
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
         <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
-          <DollarSign className="text-brand-blue" />
+          <IndianRupee className="text-brand-blue" strokeWidth={3} />
           Payment History
         </h2>
         {feePayments.length === 0 ? (
@@ -114,7 +114,7 @@ export default function StudentFeesPage() {
                 <div className="flex justify-between items-start">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-green-100 text-green-600 rounded-xl">
-                      <DollarSign size={20} />
+                      <IndianRupee size={20} strokeWidth={3} />
                     </div>
                     <div>
                       <p className="font-bold text-slate-900 text-xl">₹{payment.amount.toLocaleString()}</p>

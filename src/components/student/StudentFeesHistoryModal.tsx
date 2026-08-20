@@ -1,6 +1,6 @@
 "use client";
 
-import { X, DollarSign, Calendar, FileText, FileCheck } from "lucide-react";
+import { X, IndianRupee, Calendar, FileText, FileCheck } from "lucide-react";
 import { FeePayment } from "@/components/admin/FeePaymentModal";
 
 interface StudentFeesHistoryModalProps {
@@ -28,7 +28,7 @@ export function StudentFeesHistoryModal({
         <div className="p-6 border-b border-slate-100 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-              <DollarSign className="text-brand-blue" />
+              <IndianRupee className="text-brand-blue" strokeWidth={3} />
               Fees History
             </h2>
             <p className="text-sm text-slate-500">Detailed breakdown of payments</p>
@@ -66,7 +66,7 @@ export function StudentFeesHistoryModal({
                     <div className="flex justify-between items-start">
                       <div className="flex items-center gap-2">
                         <div className="p-2 bg-green-100 text-green-600 rounded-lg">
-                          <DollarSign size={16} />
+                          <IndianRupee size={16} strokeWidth={3} />
                         </div>
                         <div>
                           <p className="font-bold text-slate-900 text-lg">₹{payment.amount.toLocaleString()}</p>
