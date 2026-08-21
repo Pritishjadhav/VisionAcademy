@@ -121,6 +121,17 @@ export function CoursesSection() {
                   "to-transparent"
                 )} />
 
+                {/* Academy Logo Background */}
+                <div 
+                  className="absolute inset-0 z-0 opacity-[0.15] pointer-events-none"
+                  style={{
+                    backgroundImage: "url('/logo.jpeg')",
+                    backgroundSize: "80%",
+                    backgroundRepeat: "no-repeat",
+                    backgroundPosition: "center",
+                  }}
+                />
+
                 <div className="relative z-10 mb-8 mt-4">
                   <div className="flex items-center justify-between mb-6">
                     <div className={cn(

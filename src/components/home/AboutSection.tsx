@@ -104,6 +104,17 @@ export function AboutSection() {
               </div>
             </motion.div>
 
+            {/* Floating Element: Logo Badge (Bottom Right) */}
+            <motion.div 
+              animate={{ y: [12, -12, 12] }}
+              transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 2.5 }}
+              className="absolute -bottom-6 -right-6 sm:-bottom-10 sm:-right-10 z-20 bg-white/80 backdrop-blur-2xl p-2 sm:p-3 rounded-[2.5rem] shadow-2xl border border-white flex flex-col items-center justify-center"
+            >
+              <div className="w-24 h-24 sm:w-32 sm:h-32 bg-white rounded-[2rem] flex items-center justify-center shadow-inner overflow-hidden p-2 sm:p-4">
+                <img src="/logo.jpeg" alt="Vision Academy Logo" className="w-full h-full object-contain hover:scale-110 transition-transform duration-500" />
+              </div>
+            </motion.div>
+
             {/* Decorative background shape */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[105%] h-[105%] bg-gradient-to-br from-brand-blue/10 to-brand-orange/5 rounded-[3rem] -z-10 rotate-3" />
           </motion.div>

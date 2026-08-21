@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { Button } from "../ui/Button";
-import { Dna, Stethoscope } from "lucide-react";
+import { Dna, Stethoscope, Microscope, BookOpen, Target, GraduationCap } from "lucide-react";
 
 const InstagramIcon = ({ size = 20, className = "" }: { size?: number, className?: string }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -120,7 +120,7 @@ export function HeroSection() {
       {floatingFormulas.map((formula, i) => (
         <motion.div
           key={i}
-          className={`absolute font-mono text-xl md:text-3xl font-bold select-none z-0 flex items-center justify-center ${formula.color}`}
+          className={`absolute font-mono text-xl md:text-3xl font-bold select-none z-0 flex items-center justify-center whitespace-nowrap ${formula.color}`}
           style={{ left: formula.left, top: formula.top }}
           animate={{
             y: [0, -30, 0],
@@ -227,51 +227,152 @@ export function HeroSection() {
             {/* Center glowing orb */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-tr from-brand-blue to-purple-400 rounded-full blur-[80px] opacity-30 animate-pulse"></div>
 
-            {/* Large Biology DNA Background Element */}
+            {/* Center Academy Logo */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
+              <div className="absolute inset-[-15px] rounded-full border border-brand-orange/20 animate-[spin_12s_linear_infinite] border-dashed pointer-events-none"></div>
+              <div className="absolute inset-[-30px] rounded-full border border-brand-blue/15 animate-[spin_20s_linear_infinite_reverse] border-dashed pointer-events-none"></div>
+
+              <div className="relative w-48 h-48 md:w-60 md:h-60 bg-white/95 backdrop-blur-2xl p-2.5 rounded-full shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border border-white flex items-center justify-center hover:scale-[1.03] transition-transform duration-500 cursor-default group">
+                <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-brand-orange/5 to-brand-blue/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <img src="/logo.jpeg" alt="Vision Academy Logo" className="w-full h-full object-contain rounded-full relative z-10" />
+              </div>
+            </div>
+
+            {/* Orbiting Subject Pills */}
             <motion.div
+              animate={{ y: [-8, 8, -8] }}
+              transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute top-[12%] right-[10%] z-20"
+            >
+              <div className="relative group cursor-default">
+                {/* Glowing backdrop aura */}
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-indigo-500 rounded-full blur-xl opacity-20 group-hover:opacity-40 transition-opacity duration-500"></div>
+                {/* Main Pill */}
+                <div className="relative bg-white/90 backdrop-blur-3xl pr-6 pl-2 py-2 rounded-full shadow-[0_10px_40px_-10px_rgba(59,130,246,0.3)] border border-white flex items-center gap-4 hover:-translate-y-1 transition-all duration-300">
+                  {/* Icon Container */}
+                  <div className="relative w-11 h-11 flex items-center justify-center">
+                    <div className="absolute inset-0 bg-blue-500 rounded-full opacity-0 group-hover:animate-ping transition-all duration-700"></div>
+                    <div className="relative w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center shadow-lg group-hover:rotate-12 transition-transform duration-300 z-10 border border-blue-400/30">
+                      <Microscope size={18} strokeWidth={2.5} />
+                    </div>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-extrabold text-slate-800 text-[16px] leading-tight group-hover:text-blue-600 transition-colors">IIT-JEE</span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse shadow-[0_0_5px_rgba(59,130,246,0.8)]"></div>
+                      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Engineering</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+
+            <motion.div
+              animate={{ y: [8, -8, 8] }}
+              transition={{ duration: 5.5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+              className="absolute top-[45%] -left-[10%] z-20"
+            >
+              <div className="relative group cursor-default">
+                {/* Glowing backdrop aura */}
+                <div className="absolute inset-0 bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full blur-xl opacity-20 group-hover:opacity-40 transition-opacity duration-500"></div>
+                {/* Main Pill */}
+                <div className="relative bg-white/90 backdrop-blur-3xl pr-6 pl-2 py-2 rounded-full shadow-[0_10px_40px_-10px_rgba(16,185,129,0.3)] border border-white flex items-center gap-4 hover:-translate-y-1 transition-all duration-300">
+                  {/* Icon Container */}
+                  <div className="relative w-11 h-11 flex items-center justify-center">
+                    <div className="absolute inset-0 bg-emerald-500 rounded-full opacity-0 group-hover:animate-ping transition-all duration-700"></div>
+                    <div className="relative w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300 z-10 border border-emerald-400/30">
+                      <Stethoscope size={18} strokeWidth={2.5} />
+                    </div>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-extrabold text-slate-800 text-[16px] leading-tight group-hover:text-emerald-600 transition-colors">NEET UG</span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_5px_rgba(16,185,129,0.8)]"></div>
+                      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Medical</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+
+            <motion.div
+              animate={{ y: [-5, 5, -5] }}
+              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", delay: 2.5 }}
+              className="absolute bottom-[10%] right-[5%] z-20"
+            >
+              <div className="relative group cursor-default">
+                {/* Glowing backdrop aura */}
+                <div className="absolute inset-0 bg-gradient-to-r from-purple-400 to-fuchsia-500 rounded-full blur-xl opacity-20 group-hover:opacity-40 transition-opacity duration-500"></div>
+                {/* Main Pill */}
+                <div className="relative bg-white/90 backdrop-blur-3xl pr-6 pl-2 py-2 rounded-full shadow-[0_10px_40px_-10px_rgba(168,85,247,0.3)] border border-white flex items-center gap-4 hover:-translate-y-1 transition-all duration-300">
+                  {/* Icon Container */}
+                  <div className="relative w-11 h-11 flex items-center justify-center">
+                    <div className="absolute inset-0 bg-purple-500 rounded-full opacity-0 group-hover:animate-ping transition-all duration-700"></div>
+                    <div className="relative w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-fuchsia-600 text-white flex items-center justify-center shadow-lg group-hover:-rotate-12 transition-transform duration-300 z-10 border border-purple-400/30">
+                      <Target size={18} strokeWidth={2.5} />
+                    </div>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-extrabold text-slate-800 text-[16px] leading-tight group-hover:text-purple-600 transition-colors">MHT-CET</span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse shadow-[0_0_5px_rgba(168,85,247,0.8)]"></div>
+                      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">State Exam</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+
+            <motion.div
+              animate={{ y: [6, -6, 6] }}
+              transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+              className="absolute top-[80%] left-[20%] z-20"
+            >
+              <div className="relative group cursor-default">
+                {/* Glowing backdrop aura */}
+                <div className="absolute inset-0 bg-gradient-to-r from-orange-400 to-brand-orange rounded-full blur-xl opacity-20 group-hover:opacity-40 transition-opacity duration-500"></div>
+                {/* Main Pill */}
+                <div className="relative bg-white/90 backdrop-blur-3xl pr-6 pl-2 py-2 rounded-full shadow-[0_10px_40px_-10px_rgba(249,115,22,0.3)] border border-white flex items-center gap-4 hover:-translate-y-1 transition-all duration-300">
+                  {/* Icon Container */}
+                  <div className="relative w-11 h-11 flex items-center justify-center">
+                    <div className="absolute inset-0 bg-brand-orange rounded-full opacity-0 group-hover:animate-ping transition-all duration-700"></div>
+                    <div className="relative w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-brand-orange text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300 z-10 border border-orange-400/30">
+                      <BookOpen size={18} strokeWidth={2.5} />
+                    </div>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-extrabold text-slate-800 text-[16px] leading-tight group-hover:text-brand-orange transition-colors">Foundation</span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-brand-orange animate-pulse shadow-[0_0_5px_rgba(249,115,22,0.8)]"></div>
+                      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Early Start</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Decorative Orbit Rings */}
+            {/* Outer Static Ring */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[520px] h-[520px] border-[1px] border-slate-200/50 rounded-full pointer-events-none"></div>
+
+            {/* Inner Ring with Premium Elegant Flare */}
+            <motion.div 
               animate={{ rotate: 360 }}
-              transition={{ duration: 120, repeat: Infinity, ease: "linear" }}
-              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-emerald-500/20 z-0 pointer-events-none mix-blend-multiply"
+              transition={{ duration: 35, repeat: Infinity, ease: "linear" }}
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[420px] h-[420px] border-[1px] border-slate-300/40 rounded-full pointer-events-none"
             >
-              <Dna className="w-[500px] h-[500px]" strokeWidth={0.5} />
+               {/* Elegant Optical Flare */}
+               <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2">
+                 <div className="relative flex items-center justify-center">
+                   {/* Massive soft ambient glow */}
+                   <div className="absolute w-32 h-32 bg-blue-500/10 rounded-full blur-3xl"></div>
+                   {/* Focused inner glow */}
+                   <div className="absolute w-12 h-12 bg-indigo-400/30 rounded-full blur-xl"></div>
+                   {/* Solid core orb (no borders, just pure light) */}
+                   <div className="relative w-2.5 h-2.5 bg-white rounded-full shadow-[0_0_20px_4px_rgba(59,130,246,0.8)]"></div>
+                 </div>
+               </div>
             </motion.div>
-
-            {/* Floating Card 1 */}
-            <motion.div
-              animate={{ y: [-15, 15, -15] }}
-              transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-              className="absolute top-[5%] right-[10%] bg-white/80 backdrop-blur-xl p-6 rounded-3xl shadow-2xl border border-white/50 w-64 z-10"
-            >
-              <div className="w-14 h-14 rounded-2xl bg-brand-orange/10 flex items-center justify-center text-3xl mb-4 shadow-inner">🏆</div>
-              <h3 className="font-bold text-slate-900 text-lg">Top State Rankers</h3>
-              <p className="text-sm text-slate-500 mt-1 font-medium">Consistent results in JEE & NEET</p>
-            </motion.div>
-
-            {/* Floating Card 2 */}
-            <motion.div
-              animate={{ y: [15, -15, 15] }}
-              transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-              className="absolute top-[40%] left-[0%] bg-white/80 backdrop-blur-xl p-6 rounded-3xl shadow-2xl border border-white/50 w-64 z-20"
-            >
-              <div className="w-14 h-14 rounded-2xl bg-brand-blue/10 flex items-center justify-center text-3xl mb-4 shadow-inner">👨‍🔬</div>
-              <h3 className="font-bold text-slate-900 text-lg">Expert Faculty</h3>
-              <p className="text-sm text-slate-500 mt-1 font-medium">Learn from the best educators</p>
-            </motion.div>
-
-            {/* Floating Card 3 */}
-            <motion.div
-              animate={{ y: [-10, 10, -10] }}
-              transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-              className="absolute bottom-[10%] right-[20%] bg-white/80 backdrop-blur-xl p-6 rounded-3xl shadow-2xl border border-white/50 w-64 z-10"
-            >
-              <div className="w-14 h-14 rounded-2xl bg-purple-500/10 flex items-center justify-center text-3xl mb-4 shadow-inner">📚</div>
-              <h3 className="font-bold text-slate-900 text-lg">Smart Classrooms</h3>
-              <p className="text-sm text-slate-500 mt-1 font-medium">Interactive & engaging learning</p>
-            </motion.div>
-
-            {/* Decorative Rings */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[450px] h-[450px] border border-slate-200/50 rounded-full"></div>
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[350px] h-[350px] border border-brand-blue/10 rounded-full border-dashed"></div>
 
           </motion.div>
         </div>
@@ -297,4 +398,3 @@ export function HeroSection() {
     </section>
   );
 }
-

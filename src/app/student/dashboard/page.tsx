@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@/context/AuthContext";
-import { Loader2, CalendarCheck, FileText, BookOpen, IndianRupee, ListChecks, Clock, Calendar } from "lucide-react";
+import { Loader2, CalendarCheck, FileText, BookOpen, IndianRupee, ListChecks, Clock, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -28,7 +28,8 @@ export default function StudentDashboard() {
   const [statsLoading, setStatsLoading] = useState(true);
 
   const [batchName, setBatchName] = useState<string | null>(null);
-  const [upcomingSchedules, setUpcomingSchedules] = useState<{date: string, schedules: any[]}[]>([]);
+  const [allSchedules, setAllSchedules] = useState<Record<string, any[]>>({});
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toLocaleDateString('en-CA'));
   const [scheduleLoading, setScheduleLoading] = useState(true);
 
   useEffect(() => {
@@ -64,6 +65,8 @@ export default function StudentDashboard() {
     
     if (user?.uid && role === "student") {
       fetchAttendance();
+      const intervalId = setInterval(fetchAttendance, 2000);
+      return () => clearInterval(intervalId);
     }
   }, [user?.uid, role]);
 
@@ -91,6 +94,8 @@ export default function StudentDashboard() {
 
     if (user?.uid && role === "student") {
       fetchFees();
+      const intervalId = setInterval(fetchFees, 2000);
+      return () => clearInterval(intervalId);
     }
   }, [user?.uid, role]);
 
@@ -101,16 +106,12 @@ export default function StudentDashboard() {
         return;
       }
       try {
-        const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
         const q = query(
           collection(db, "timetables"),
           where("batchId", "==", batchName)
         );
         const snapshot = await getDocs(q);
         let schedules = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
-        
-        // Filter client-side for today or future dates to avoid requiring composite indexes
-        schedules = schedules.filter((s: any) => s.date >= today);
         
         schedules.sort((a: any, b: any) => {
           if (a.date !== b.date) return a.date.localeCompare(b.date);
@@ -124,12 +125,7 @@ export default function StudentDashboard() {
           grouped[s.date].push(s);
         });
         
-        const formattedSchedules = Object.keys(grouped).map(date => ({
-          date,
-          schedules: grouped[date]
-        })).sort((a, b) => a.date.localeCompare(b.date));
-        
-        setUpcomingSchedules(formattedSchedules);
+        setAllSchedules(grouped);
       } catch (error) {
         console.error("Error fetching schedule:", error);
       } finally {
@@ -138,6 +134,8 @@ export default function StudentDashboard() {
     }
 
     fetchSchedule();
+    const intervalId = setInterval(fetchSchedule, 2000);
+    return () => clearInterval(intervalId);
   }, [batchName]);
 
   if (loading || !user || role !== "student") {
@@ -157,6 +155,18 @@ export default function StudentDashboard() {
   const totalPaid = feePayments.reduce((sum, p) => sum + p.amount, 0);
   const remainingFees = Math.max(0, totalFees - totalPaid);
 
+  const shiftDate = (days: number) => {
+    const d = new Date(selectedDate);
+    d.setDate(d.getDate() + days);
+    setSelectedDate(d.toLocaleDateString('en-CA'));
+  };
+
+  const displayedSchedules = allSchedules[selectedDate] || [];
+  const isToday = selectedDate === new Date().toLocaleDateString('en-CA');
+  const dateObj = new Date(selectedDate);
+  const dayName = isToday ? "Today" : dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+  const dateText = dateObj.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
   return (
     <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 py-8">
       <div className="mb-8">
@@ -166,7 +176,7 @@ export default function StudentDashboard() {
         </p>
       </div>
       
-      {!scheduleLoading && upcomingSchedules.length > 0 && (
+      {!scheduleLoading && (
         <div className="mb-8 relative group">
           {/* Decorative background glow */}
           <div className="absolute -inset-1 bg-gradient-to-r from-brand-blue to-brand-orange rounded-[2rem] blur opacity-10 group-hover:opacity-20 transition duration-1000"></div>
@@ -176,71 +186,76 @@ export default function StudentDashboard() {
             <div className="absolute top-0 right-0 -mt-10 -mr-10 w-64 h-64 bg-brand-blue/5 rounded-full blur-3xl pointer-events-none"></div>
             <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-64 h-64 bg-brand-orange/5 rounded-full blur-3xl pointer-events-none"></div>
 
-            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-blue to-blue-600 shadow-md shadow-brand-blue/20 flex items-center justify-center text-white transform -rotate-3 group-hover:rotate-0 transition-transform duration-500">
                   <Calendar size={22} />
                 </div>
                 <div>
-                  <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">Your Schedule</h2>
-                  <p className="text-xs sm:text-sm font-medium text-slate-500 mt-0.5">Stay on top of your upcoming classes</p>
+                  <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">Class Schedule</h2>
+                  <p className="text-xs sm:text-sm font-medium text-slate-500 mt-0.5">View your timetable for any day</p>
                 </div>
+              </div>
+              
+              {/* Date Selector */}
+              <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200 shadow-sm self-start md:self-auto">
+                <button 
+                  onClick={() => shiftDate(-1)}
+                  className="p-2 hover:bg-white rounded-lg text-slate-600 hover:text-brand-blue hover:shadow-sm transition-all"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+                <div className="flex flex-col items-center justify-center px-4 min-w-[140px]">
+                  <span className={`text-sm font-bold ${isToday ? 'text-brand-blue' : 'text-slate-700'}`}>{dayName}</span>
+                  <span className="text-[11px] font-medium text-slate-500">{dateText}</span>
+                </div>
+                <button 
+                  onClick={() => shiftDate(1)}
+                  className="p-2 hover:bg-white rounded-lg text-slate-600 hover:text-brand-blue hover:shadow-sm transition-all"
+                >
+                  <ChevronRight size={20} />
+                </button>
               </div>
             </div>
             
-            <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-              {upcomingSchedules.map((dayGroup, groupIdx) => {
-                const isToday = dayGroup.date === new Date().toLocaleDateString('en-CA');
-                const dateObj = new Date(dayGroup.date);
-                const dayName = isToday ? "Today" : dateObj.toLocaleDateString('en-US', { weekday: 'long' });
-                const dateText = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                
-                return (
-                  <div 
-                    key={dayGroup.date} 
-                    className={`relative flex flex-col rounded-2xl transition-all duration-300 hover:-translate-y-1 ${
-                      isToday 
-                        ? 'bg-gradient-to-b from-brand-blue/5 to-white border border-brand-blue/20 shadow-md shadow-brand-blue/5' 
-                        : 'bg-white hover:bg-slate-50/50 border border-slate-100 hover:border-slate-200 shadow-sm'
-                    }`}
-                  >
-                    <div className="p-4 pb-3 flex items-center justify-between border-b border-slate-100/50">
-                      <div>
-                        <h3 className={`text-lg font-black tracking-tight leading-none ${isToday ? 'text-brand-blue' : 'text-slate-800'}`}>
-                          {dayName}
-                        </h3>
-                        <p className="text-[11px] font-bold text-slate-400 mt-1.5">{dateText}</p>
+            <div className="relative z-10">
+              {displayedSchedules.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+                  {displayedSchedules.map((schedule, i) => (
+                    <div key={schedule.id} className="relative flex flex-col bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-brand-blue/30 hover:-translate-y-1 transition-all duration-300 p-5 group/card">
+                      <div className="flex items-center gap-3 mb-3">
+                         <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isToday ? 'bg-brand-blue/10 text-brand-blue' : 'bg-slate-100 text-slate-500'}`}>
+                           <Clock size={18} className={isToday ? "animate-pulse" : ""} />
+                         </div>
+                         <div className="flex flex-col">
+                           <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Time</span>
+                           <span className={`text-sm font-extrabold ${isToday ? 'text-brand-orange' : 'text-slate-700'}`}>{schedule.time}</span>
+                         </div>
                       </div>
-                      <div className={`px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${isToday ? 'bg-brand-blue text-white shadow-sm' : 'bg-slate-100 text-slate-500'}`}>
-                        {dayGroup.schedules.length} {dayGroup.schedules.length === 1 ? 'Class' : 'Classes'}
+                      <div className="pt-3 border-t border-slate-100">
+                        <span className="text-lg font-black text-slate-800 leading-tight block">{schedule.subject}</span>
                       </div>
                     </div>
-
-                    <div className="p-4 pt-3 flex-1 flex flex-col gap-0">
-                      {dayGroup.schedules.map((schedule, i) => (
-                        <div key={schedule.id} className="relative pl-6 py-2.5 group/item">
-                          {/* Timeline Line */}
-                          {i !== dayGroup.schedules.length - 1 && (
-                            <div className={`absolute left-[7px] top-6 bottom-[-10px] w-[2px] rounded-full ${isToday ? 'bg-brand-blue/20' : 'bg-slate-100'}`}></div>
-                          )}
-                          
-                          {/* Timeline Dot */}
-                          <div className={`absolute left-[3px] top-4 w-2.5 h-2.5 rounded-full ring-4 ring-white z-10 ${isToday ? 'bg-brand-orange' : 'bg-slate-200'}`}>
-                            {isToday && i === 0 && (
-                              <div className="absolute -inset-1 bg-brand-orange/40 rounded-full animate-ping"></div>
-                            )}
-                          </div>
-                          
-                          <div className="flex flex-col">
-                            <span className={`text-[11px] font-bold tracking-wide ${isToday ? 'text-brand-orange' : 'text-slate-400'}`}>{schedule.time}</span>
-                            <span className="font-extrabold text-slate-800 text-sm mt-0.5">{schedule.subject}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="w-full py-12 flex flex-col items-center justify-center bg-slate-50/50 rounded-2xl border border-slate-100 border-dashed">
+                  <div className="w-16 h-16 mb-4 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+                    <Calendar size={32} />
                   </div>
-                );
-              })}
+                  <h3 className="text-lg font-bold text-slate-700">No classes scheduled</h3>
+                  <p className="text-sm text-slate-500 mt-1">There are no classes assigned to your batch for this date.</p>
+                  
+                  {!isToday && (
+                    <button 
+                      onClick={() => setSelectedDate(new Date().toLocaleDateString('en-CA'))}
+                      className="mt-6 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-bold shadow-sm hover:text-brand-blue hover:border-brand-blue/30 transition-colors"
+                    >
+                      Back to Today
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
