@@ -77,8 +77,9 @@ export default function StudentTheoryMarksPage() {
   // Calculate overall performance
   let overallPercentage = 0;
   if (marks.length > 0) {
-    const totalObtained = marks.reduce((sum, m) => sum + m.marksObtained, 0);
-    const totalMax = marks.reduce((sum, m) => sum + m.totalMarks, 0);
+    const validMarks = marks.filter(m => m.marksObtained >= 0);
+    const totalObtained = validMarks.reduce((sum, m) => sum + m.marksObtained, 0);
+    const totalMax = validMarks.reduce((sum, m) => sum + m.totalMarks, 0);
     overallPercentage = totalMax > 0 ? Math.round((totalObtained / totalMax) * 100) : 0;
   }
 
@@ -166,16 +167,28 @@ export default function StudentTheoryMarksPage() {
                           {new Date(mark.date).toLocaleDateString()}
                         </td>
                         <td className="py-4 px-6 text-right font-medium">
-                          <span className="text-slate-900">{mark.marksObtained}</span>
-                          <span className="text-slate-400"> / {mark.totalMarks}</span>
+                          {mark.marksObtained === -1 ? (
+                            <span className="text-red-500 font-bold">Absent</span>
+                          ) : (
+                            <>
+                              <span className="text-slate-900">{mark.marksObtained}</span>
+                              <span className="text-slate-400"> / {mark.totalMarks}</span>
+                            </>
+                          )}
                         </td>
                         <td className="py-4 px-6 text-right">
-                          <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-sm font-bold ${
-                            percentage >= 75 ? 'bg-green-50 text-green-700' :
-                            percentage >= 60 ? 'bg-yellow-50 text-yellow-700' : 'bg-red-50 text-red-700'
-                          }`}>
-                            {percentage}%
-                          </span>
+                          {mark.marksObtained === -1 ? (
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-md text-sm font-bold bg-slate-100 text-slate-500">
+                              N/A
+                            </span>
+                          ) : (
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-sm font-bold ${
+                              percentage >= 75 ? 'bg-green-50 text-green-700' :
+                              percentage >= 60 ? 'bg-yellow-50 text-yellow-700' : 'bg-red-50 text-red-700'
+                            }`}>
+                              {percentage}%
+                            </span>
+                          )}
                         </td>
                       </tr>
                     );

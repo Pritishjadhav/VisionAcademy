@@ -2,9 +2,9 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { SectionHeading } from "../ui/SectionHeading";
-import { MapPin, Phone, Mail, Clock, CheckCircle2 } from "lucide-react";
+import { MapPin, Phone, Mail, Clock, CheckCircle2, ChevronDown, Check } from "lucide-react";
 import { Button } from "../ui/Button";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 const InstagramIcon = ({ size = 20 }: { size?: number }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
@@ -33,6 +33,29 @@ const WhatsappIcon = ({ size = 20 }: { size?: number }) => (
 export function ContactSection() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  
+  // Premium Dropdown State
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [selectedCourse, setSelectedCourse] = useState("");
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const courseOptions = [
+    "Integrated Batch",
+    "Regular Batch",
+    "Crash Course",
+    "Other"
+  ];
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -208,15 +231,65 @@ export function ContactSection() {
                         <label htmlFor="email" className="text-sm font-medium text-slate-700 ">Email Address *</label>
                         <input type="email" id="email" name="email" required className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-blue" placeholder="you@example.com" />
                       </div>
-                      <div className="space-y-2">
-                        <label htmlFor="course" className="text-sm font-medium text-slate-700 ">Interested Course</label>
-                        <select id="course" name="course" defaultValue="" required className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-blue text-slate-700 ">
-                          <option value="" disabled>Choose Interested Course</option>
-                          <option value="Integrated Batch (11th+12th)">Integrated Batch (11th+12th)</option>
-                          <option value="Regular Batch">Regular Batch</option>
-                          <option value="Crash Course">Crash Course</option>
-                          <option value="Other">Other</option>
-                        </select>
+                      <div className="space-y-2 relative" ref={dropdownRef}>
+                        <label className="text-sm font-medium text-slate-700">Interested Course *</label>
+                        
+                        {/* Hidden input to include selected value in form submission */}
+                        <input type="hidden" name="course" value={selectedCourse} required />
+                        
+                        <div
+                          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                          className={`w-full px-4 py-3 rounded-xl border ${isDropdownOpen ? 'border-brand-blue bg-white ring-2 ring-brand-blue/20' : 'border-slate-200 bg-slate-50'} hover:border-brand-blue/50 cursor-pointer flex items-center justify-between transition-all duration-200 group`}
+                        >
+                          <span className={`${selectedCourse ? 'text-slate-900' : 'text-slate-500'} font-medium`}>
+                            {selectedCourse || "Choose Interested Course"}
+                          </span>
+                          <ChevronDown size={20} className={`text-slate-400 transition-transform duration-300 ${isDropdownOpen ? 'rotate-180 text-brand-blue' : 'group-hover:text-brand-blue'}`} />
+                        </div>
+
+                        <AnimatePresence>
+                          {isDropdownOpen && (
+                            <motion.div
+                              initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                              transition={{ duration: 0.2, ease: "easeOut" }}
+                              className="absolute z-50 w-full mt-2 bg-white border border-slate-100 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] overflow-hidden"
+                            >
+                              <div className="py-2 max-h-60 overflow-y-auto custom-scrollbar">
+                                {courseOptions.map((option, index) => (
+                                  <div key={option}>
+                                    {index === courseOptions.length - 1 && (
+                                      <div className="h-px bg-slate-200 my-1 mx-4"></div>
+                                    )}
+                                    <div
+                                      onClick={() => {
+                                        setSelectedCourse(option);
+                                        setIsDropdownOpen(false);
+                                      }}
+                                      className={`px-4 py-3 cursor-pointer flex items-center justify-between transition-colors ${
+                                        selectedCourse === option 
+                                          ? 'bg-brand-blue/5 text-brand-blue font-semibold' 
+                                          : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                                      }`}
+                                    >
+                                      <span>{option}</span>
+                                      {selectedCourse === option && (
+                                        <motion.div
+                                          initial={{ scale: 0 }}
+                                          animate={{ scale: 1 }}
+                                          transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                                        >
+                                          <Check size={18} className="text-brand-blue" />
+                                        </motion.div>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </div>
                       <div className="space-y-2">
                         <label htmlFor="message" className="text-sm font-medium text-slate-700 ">Message (Optional)</label>

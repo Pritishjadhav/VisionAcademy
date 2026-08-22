@@ -74,7 +74,7 @@ export default function TheoryTestMarksPage({ params }: { params: Promise<{ batc
         const existingMarks: Record<string, string> = {};
         marksSnapshot.forEach(doc => {
           const data = doc.data();
-          existingMarks[data.studentId] = data.marksObtained.toString();
+          existingMarks[data.studentId] = data.marksObtained === -1 ? "Absent" : data.marksObtained.toString();
         });
         setMarks(existingMarks);
         
@@ -95,7 +95,7 @@ export default function TheoryTestMarksPage({ params }: { params: Promise<{ batc
 
   const handleMarkChange = (studentId: string, value: string) => {
     // Basic validation to prevent entering more than total marks
-    if (value !== "" && test && Number(value) > test.totalMarks) {
+    if (value !== "" && value !== "Absent" && test && Number(value) > test.totalMarks) {
       toast.error(`Marks cannot exceed ${test.totalMarks}`);
       return;
     }
@@ -122,7 +122,7 @@ export default function TheoryTestMarksPage({ params }: { params: Promise<{ batc
             testId: testId,
             studentId: student.id,
             batch: batchName,
-            marksObtained: Number(markValue),
+            marksObtained: markValue === "Absent" ? -1 : Number(markValue),
             testName: test.testName,
             subject: test.subject,
             date: test.date,
@@ -226,16 +226,34 @@ export default function TheoryTestMarksPage({ params }: { params: Promise<{ batc
                       <CheckCircle size={14} className="mr-1" /> Entered
                     </span>
                   )}
+                  
+                  <label className={`flex items-center gap-2 text-sm font-medium cursor-pointer transition-colors ${currentMark === "Absent" ? "text-red-500" : "text-slate-600"}`}>
+                    <input 
+                      type="checkbox" 
+                      checked={currentMark === "Absent"}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          handleMarkChange(student.id, "Absent");
+                        } else {
+                          handleMarkChange(student.id, "");
+                        }
+                      }}
+                      disabled={!isEditing}
+                      className={`w-4 h-4 rounded border-slate-300 disabled:opacity-50 ${currentMark === "Absent" ? "text-red-500 focus:ring-red-500" : "text-brand-blue focus:ring-brand-blue"}`}
+                    />
+                    Absent
+                  </label>
+
                   <div className="relative">
                     <input
                       type="number"
                       min="0"
                       max={test.totalMarks}
-                      value={currentMark}
+                      value={currentMark === "Absent" ? "" : currentMark}
                       onChange={(e) => handleMarkChange(student.id, e.target.value)}
                       placeholder="--"
-                      disabled={!isEditing}
-                      className={`w-24 px-3 py-2 text-center text-lg font-bold bg-white border border-slate-200 rounded-lg outline-none transition-all ${isEditing ? "focus:ring-2 focus:ring-brand-blue/50 focus:border-brand-blue" : "opacity-70 bg-slate-50 cursor-not-allowed"}`}
+                      disabled={!isEditing || currentMark === "Absent"}
+                      className={`w-24 px-3 py-2 text-center text-lg font-bold bg-white border border-slate-200 rounded-lg outline-none transition-all ${isEditing && currentMark !== "Absent" ? "focus:ring-2 focus:ring-brand-blue/50 focus:border-brand-blue" : "opacity-70 bg-slate-50 cursor-not-allowed"}`}
                     />
                     <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400 text-sm">
                       / {test.totalMarks}

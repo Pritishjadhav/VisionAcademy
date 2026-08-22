@@ -44,38 +44,38 @@ export function AboutSection() {
       {/* Background Premium Elements */}
       <div className="absolute top-0 right-0 -translate-y-12 translate-x-1/3 w-[800px] h-[800px] bg-brand-blue/5 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 left-0 translate-y-1/3 -translate-x-1/3 w-[600px] h-[600px] bg-brand-orange/5 rounded-full blur-3xl pointer-events-none" />
-      
+
       {/* Grid Pattern Background overlay for professional tech feel */}
       <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.015] pointer-events-none mix-blend-overlay"></div>
 
       <div className="max-w-[1600px] mx-auto px-4 sm:px-8 lg:px-12 xl:px-16 relative z-10">
-        <SectionHeading 
-          title="About Vision Academy" 
-          subtitle="Empowering students with knowledge, skills, and confidence to achieve their dreams." 
+        <SectionHeading
+          title="About Vision Academy"
+          subtitle="Empowering students with knowledge, skills, and confidence to achieve their dreams."
         />
 
         <div className="mt-20 grid grid-cols-1 lg:grid-cols-2 gap-16 xl:gap-24 items-center">
-          
+
           {/* Left Column: Visuals */}
           <motion.div
             initial={{ opacity: 0, x: -50 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true, margin: "-100px" }}
             transition={{ duration: 0.8 }}
-            className="relative"
+            className="relative pb-16 sm:pb-24"
           >
             {/* Main Image Container */}
-            <div className="relative w-full aspect-[4/5] sm:aspect-[4/4] lg:aspect-[4/5] rounded-[2.5rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.1)] border-8 border-white z-10 group">
-              <div className="absolute inset-0 bg-brand-blue/10 mix-blend-multiply z-10 group-hover:opacity-0 transition-opacity duration-700" />
-              <img 
-                src="https://images.unsplash.com/photo-1523240795612-9a054b0db644?q=80&w=2070&auto=format&fit=crop" 
-                alt="Students studying" 
-                className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-1000 ease-out"
+            <div className="relative w-full rounded-[2.5rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.1)] border-8 border-white z-10 group bg-white">
+              <div className="absolute inset-0 bg-brand-blue/10 mix-blend-multiply z-10 group-hover:opacity-0 transition-opacity duration-700 pointer-events-none" />
+              <img
+                src="/academy-banner.jpeg"
+                alt="Vision Academy Banner"
+                className="w-full h-auto object-contain transform group-hover:scale-[1.02] transition-transform duration-1000 ease-out block"
               />
             </div>
-            
+
             {/* Floating Element: 10+ Years */}
-            <motion.div 
+            <motion.div
               animate={{ y: [15, -15, 15] }}
               transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
               className="absolute -bottom-8 -left-4 sm:-left-12 z-20 bg-white/90 backdrop-blur-xl p-5 sm:p-6 rounded-3xl shadow-2xl border border-white flex items-center gap-4"
@@ -90,7 +90,7 @@ export function AboutSection() {
             </motion.div>
 
             {/* Floating Element: #1 Institute */}
-            <motion.div 
+            <motion.div
               animate={{ y: [-15, 15, -15] }}
               transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
               className="absolute -top-10 -right-4 sm:-right-10 z-20 bg-white/90 backdrop-blur-xl p-5 sm:p-6 rounded-3xl shadow-2xl border border-white hidden md:flex flex-col items-center justify-center gap-2"
@@ -105,7 +105,7 @@ export function AboutSection() {
             </motion.div>
 
             {/* Floating Element: Logo Badge (Bottom Right) */}
-            <motion.div 
+            <motion.div
               animate={{ y: [12, -12, 12] }}
               transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 2.5 }}
               className="absolute -bottom-6 -right-6 sm:-bottom-10 sm:-right-10 z-20 bg-white/80 backdrop-blur-2xl p-2 sm:p-3 rounded-[2.5rem] shadow-2xl border border-white flex flex-col items-center justify-center"
@@ -136,7 +136,7 @@ export function AboutSection() {
               We Don&apos;t Just Teach, <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-blue via-blue-600 to-brand-orange">We Transform.</span>
             </h3>
-            
+
             <p className="text-lg text-slate-600 mb-10 leading-relaxed font-medium">
               At Vision Academy, we believe that every student has the potential to excel. Our approach isn&apos;t just about teaching; it&apos;s about creating an ecosystem where students can thrive, discover their potential, and build the foundation for a successful career.
             </p>
@@ -146,7 +146,7 @@ export function AboutSection() {
               {features.map((item, index) => (
                 <div key={index} className="flex flex-col gap-4 bg-white p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:-translate-y-1 transition-all duration-300 group cursor-default relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-slate-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-bl-full pointer-events-none" />
-                  
+
                   <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border ${item.bgColor} ${item.color} transition-transform duration-500 group-hover:scale-110 group-hover:-rotate-3 shadow-sm relative z-10`}>
                     {item.icon}
                   </div>
@@ -159,12 +159,12 @@ export function AboutSection() {
             </div>
 
             <div>
-               <Link href="/#courses">
-                  <Button size="lg" variant="primary" className="gap-2 px-8 py-6 rounded-2xl shadow-xl shadow-brand-blue/20 hover:-translate-y-1 hover:shadow-2xl hover:shadow-brand-blue/30 transition-all text-lg font-semibold group">
-                    Explore Our Courses 
-                    <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
-                  </Button>
-               </Link>
+              <Link href="/#courses">
+                <Button size="lg" variant="primary" className="gap-2 px-8 py-6 rounded-2xl shadow-xl shadow-brand-blue/20 hover:-translate-y-1 hover:shadow-2xl hover:shadow-brand-blue/30 transition-all text-lg font-semibold group">
+                  Explore Our Courses
+                  <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+                </Button>
+              </Link>
             </div>
           </motion.div>
 

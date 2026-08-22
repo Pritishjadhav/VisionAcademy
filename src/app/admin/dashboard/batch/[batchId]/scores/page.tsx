@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
-import { collection, query, where, getDocs, doc, deleteDoc, writeBatch } from "firebase/firestore";
+import { useState, useEffect, use, useMemo } from "react";
+import { collection, query, where, getDocs, doc, deleteDoc, writeBatch, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
-import { ArrowLeft, Loader2, FileText, BookOpen, BarChart, Calendar, X, ListChecks, ChevronRight, Users, Award, Download, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, FileText, BookOpen, BarChart, Calendar, X, ListChecks, ChevronRight, Users, Award, Download, Trash2, Edit3, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { downloadOmrResultSheet } from "@/lib/omr/client";
+import * as XLSX from "xlsx";
 
 interface Student {
   id: string;
@@ -65,6 +66,9 @@ export default function BatchScoresPage({ params }: { params: Promise<{ batchId:
   const [onlineResultsMap, setOnlineResultsMap] = useState<Record<string, Record<string, number>>>({}); 
   const [omrResultsMap, setOmrResultsMap] = useState<Record<string, Record<string, number>>>({}); 
   const [isDeleting, setIsDeleting] = useState(false);
+  const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
+  const [editMarkValue, setEditMarkValue] = useState<string>("");
+  const [isSavingMark, setIsSavingMark] = useState(false);
 
   useEffect(() => {
     async function fetchAllData() {
@@ -213,7 +217,7 @@ export default function BatchScoresPage({ params }: { params: Promise<{ batchId:
         scoreCollection = "results";
       } else if (selectedTest.type === "omr") {
         testCollection = "omrTests";
-        scoreCollection = "omr_results";
+        scoreCollection = "omrResults";
       }
 
       // 2. Delete the test document itself
@@ -249,12 +253,94 @@ export default function BatchScoresPage({ params }: { params: Promise<{ batchId:
     }
   };
 
-  const handleDownloadCsv = () => {
+  const handleEditClick = (studentId: string, currentMark: number | undefined) => {
+    setEditingStudentId(studentId);
+    setEditMarkValue(currentMark === undefined ? "" : (currentMark === -1 ? "Absent" : currentMark.toString()));
+  };
+
+  const handleSaveEdit = async (studentId: string) => {
+    if (!selectedTest) return;
+    
+    setIsSavingMark(true);
+    try {
+      let collectionName = "";
+      if (selectedTest.type === "theory") collectionName = "theoryMarks";
+      else if (selectedTest.type === "online") collectionName = "results";
+      else if (selectedTest.type === "omr") collectionName = "omrResults";
+
+      const q = query(collection(db, collectionName), where("testId", "==", selectedTest.id), where("studentId", "==", studentId));
+      const snap = await getDocs(q);
+      
+      const parsedMark = (editMarkValue.toLowerCase() === "absent" || editMarkValue === "-1") ? -1 : Number(editMarkValue);
+      
+      if (snap.empty) {
+        toast.error("Record not found. Cannot add new record from here yet.");
+        setIsSavingMark(false);
+        return;
+      } else {
+        const docRef = doc(db, collectionName, snap.docs[0].id);
+        await updateDoc(docRef, { marksObtained: parsedMark });
+      }
+
+      // Update local state
+      if (selectedTest.type === "theory") {
+        setTheoryMarksMap(prev => ({ ...prev, [studentId]: { ...prev[studentId], [selectedTest.id]: parsedMark } }));
+      } else if (selectedTest.type === "online") {
+        setOnlineResultsMap(prev => ({ ...prev, [studentId]: { ...prev[studentId], [selectedTest.id]: parsedMark } }));
+      } else if (selectedTest.type === "omr") {
+        setOmrResultsMap(prev => ({ ...prev, [studentId]: { ...prev[studentId], [selectedTest.id]: parsedMark } }));
+      }
+
+      toast.success("Score updated successfully");
+      setEditingStudentId(null);
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to update score");
+    } finally {
+      setIsSavingMark(false);
+    }
+  };
+
+  const sortedStudents = useMemo(() => {
+    if (!selectedTest) return students;
+
+    return [...students].sort((a, b) => {
+      let markA = undefined;
+      let markB = undefined;
+      
+      if (selectedTest.type === "theory") {
+        markA = theoryMarksMap[a.id]?.[selectedTest.id];
+        markB = theoryMarksMap[b.id]?.[selectedTest.id];
+      } else if (selectedTest.type === "omr") {
+        markA = omrResultsMap[a.id]?.[selectedTest.id];
+        markB = omrResultsMap[b.id]?.[selectedTest.id];
+      } else {
+        markA = onlineResultsMap[a.id]?.[selectedTest.id];
+        markB = onlineResultsMap[b.id]?.[selectedTest.id];
+      }
+
+      const getScoreWeight = (mark: number | undefined) => {
+        if (mark === undefined) return -Infinity; // Not attempted
+        if (mark === -1) return -2; // Absent
+        return mark; // Normal mark
+      };
+
+      const weightA = getScoreWeight(markA);
+      const weightB = getScoreWeight(markB);
+
+      if (weightA !== weightB) {
+        return weightB - weightA; // Descending order
+      }
+      
+      // If marks are same, sort by name
+      return a.name.localeCompare(b.name);
+    });
+  }, [students, selectedTest, theoryMarksMap, omrResultsMap, onlineResultsMap]);
+
+  const handleDownloadExcel = () => {
     if (!selectedTest) return;
 
-    let csvContent = "S.No,Student Name,Mobile Number,Marks Obtained,Percentage\n";
-    
-    students.forEach((student, index) => {
+    const exportData = sortedStudents.map((student, index) => {
       let mark = undefined;
       if (selectedTest.type === "theory") {
         mark = theoryMarksMap[student.id]?.[selectedTest.id];
@@ -264,24 +350,38 @@ export default function BatchScoresPage({ params }: { params: Promise<{ batchId:
         mark = onlineResultsMap[student.id]?.[selectedTest.id];
       }
 
-      const percentage = mark !== undefined && selectedTest.totalMarks > 0 
+      const percentage = mark !== undefined && mark >= 0 && selectedTest.totalMarks > 0 
         ? Math.round((mark / selectedTest.totalMarks) * 100) + "%"
-        : "";
+        : (mark === -1 ? "N/A" : "");
       
-      const markStr = mark !== undefined ? mark : "Not Attempted";
+      const markStr = mark !== undefined ? (mark === -1 ? "Absent" : mark) : "Not Attempted";
       
-      csvContent += `${index + 1},"${student.name}","${student.mobile}","${markStr}","${percentage}"\n`;
+      return {
+        "S.No": index + 1,
+        "Student Name": student.name,
+        "Mobile Number": student.mobile,
+        "Marks Obtained": markStr,
+        "Percentage": percentage
+      };
     });
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `${selectedTest.testName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_scores.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    
+    // Auto-size columns based on content
+    const colWidths = [
+      { wch: 5 }, // S.No
+      { wch: 30 }, // Student Name
+      { wch: 15 }, // Mobile Number
+      { wch: 15 }, // Marks Obtained
+      { wch: 15 }  // Percentage
+    ];
+    worksheet['!cols'] = colWidths;
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Scores");
+    
+    const fileName = `${selectedTest.testName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_scores.xlsx`;
+    XLSX.writeFile(workbook, fileName);
   };
 
   return (
@@ -427,17 +527,17 @@ export default function BatchScoresPage({ params }: { params: Promise<{ batchId:
               <div className="flex items-center gap-4 mt-2 text-sm text-slate-500 font-medium">
                 <span className="flex items-center gap-1.5"><Calendar size={14} /> {new Date(selectedTest.date).toLocaleDateString()}</span>
                 <span className="flex items-center gap-1.5"><Award size={14} /> Max Marks: {selectedTest.totalMarks}</span>
-                <span className="flex items-center gap-1.5"><Users size={14} /> {students.length} Students</span>
+                <span className="flex items-center gap-1.5"><Users size={14} /> {sortedStudents.length} Students</span>
               </div>
             </div>
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mt-4 sm:mt-0">
               <button
-                onClick={handleDownloadCsv}
+                onClick={handleDownloadExcel}
                 className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
-                title="Download Scores CSV"
+                title="Download Scores Excel"
               >
                 <Download size={16} />
-                <span className="hidden sm:inline">Download CSV</span>
+                <span className="hidden sm:inline">Download Excel</span>
               </button>
               {selectedTest.type === "omr" && (
                 <button
@@ -486,7 +586,7 @@ export default function BatchScoresPage({ params }: { params: Promise<{ batchId:
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {students.map((student, index) => {
+                {sortedStudents.map((student, index) => {
                   let mark = undefined;
                   if (selectedTest.type === "theory") {
                     mark = theoryMarksMap[student.id]?.[selectedTest.id];
@@ -496,7 +596,7 @@ export default function BatchScoresPage({ params }: { params: Promise<{ batchId:
                     mark = onlineResultsMap[student.id]?.[selectedTest.id];
                   }
 
-                  const percentage = mark !== undefined && selectedTest.totalMarks > 0 
+                  const percentage = mark !== undefined && mark >= 0 && selectedTest.totalMarks > 0 
                     ? Math.round((mark / selectedTest.totalMarks) * 100) 
                     : null;
 
@@ -510,14 +610,48 @@ export default function BatchScoresPage({ params }: { params: Promise<{ batchId:
                         <p className="text-xs font-medium text-slate-500 mt-0.5">{student.mobile}</p>
                       </td>
                       <td className="py-4 px-6 text-center border-r border-slate-100">
-                        {mark !== undefined ? (
-                          <span className="font-black text-lg text-slate-900">{mark}</span>
+                        {editingStudentId === student.id ? (
+                          <div className="flex items-center justify-center gap-2">
+                            <input 
+                              type="text" 
+                              value={editMarkValue} 
+                              onChange={(e) => setEditMarkValue(e.target.value)}
+                              className="w-20 px-2 py-1 text-center text-sm font-bold border border-slate-300 rounded-md outline-none focus:border-brand-blue"
+                              disabled={isSavingMark}
+                              placeholder="Score/Absent"
+                            />
+                            <button onClick={() => handleSaveEdit(student.id)} disabled={isSavingMark} className="text-green-600 hover:text-green-700 bg-green-50 p-1 rounded shadow-sm">
+                              {isSavingMark ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                            </button>
+                            <button onClick={() => setEditingStudentId(null)} disabled={isSavingMark} className="text-slate-400 hover:text-slate-600 bg-slate-50 p-1 rounded shadow-sm">
+                              <X size={16} />
+                            </button>
+                          </div>
                         ) : (
-                          <span className="text-slate-300 font-medium italic text-sm">Not Attempted</span>
+                          <div className="flex items-center justify-center gap-2 group/edit">
+                            {mark !== undefined ? (
+                              mark === -1 ? (
+                                <span className="font-black text-lg text-red-500">Absent</span>
+                              ) : (
+                                <span className="font-black text-lg text-slate-900">{mark}</span>
+                              )
+                            ) : (
+                              <span className="text-slate-300 font-medium italic text-sm">Not Attempted</span>
+                            )}
+                            {mark !== undefined && (
+                              <button onClick={() => handleEditClick(student.id, mark)} className="text-slate-400 hover:text-brand-blue opacity-0 group-hover/edit:opacity-100 transition-opacity">
+                                <Edit3 size={14} />
+                              </button>
+                            )}
+                          </div>
                         )}
                       </td>
                       <td className="py-4 px-6 text-center bg-blue-50/20">
-                        {percentage !== null ? (
+                        {mark === -1 ? (
+                          <span className="font-bold text-sm px-3 py-1.5 rounded-lg border bg-slate-50 text-slate-500 border-slate-200">
+                            N/A
+                          </span>
+                        ) : percentage !== null ? (
                           <span className={`font-bold text-sm px-3 py-1.5 rounded-lg border ${
                             percentage >= 75 ? 'bg-green-50 text-green-700 border-green-200' :
                             percentage >= 60 ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 

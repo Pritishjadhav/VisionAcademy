@@ -28,6 +28,7 @@ interface Props {
 export function TheoryPerformanceChart({ marks }: Props) {
   const data = useMemo(() => {
     const chartData = [...marks]
+      .filter(m => m.marksObtained >= 0)
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       .map(m => {
         const percentage = m.totalMarks > 0 

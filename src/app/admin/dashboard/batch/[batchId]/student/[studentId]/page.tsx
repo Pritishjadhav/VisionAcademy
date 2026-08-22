@@ -87,7 +87,7 @@ export default function StudentProfilePage({ params }: { params: Promise<{ batch
         const theorySnap = await getDocs(theoryQ);
         const theoryScores: TestScore[] = theorySnap.docs.map(d => {
           const data = d.data();
-          const pct = data.totalMarks > 0 ? (data.marksObtained / data.totalMarks) * 100 : 0;
+          const pct = data.totalMarks > 0 && data.marksObtained >= 0 ? (data.marksObtained / data.totalMarks) * 100 : 0;
           return {
             id: d.id,
             testId: data.testId,
@@ -192,9 +192,10 @@ export default function StudentProfilePage({ params }: { params: Promise<{ batch
   const presentDays = attendance.filter(a => a.status === "present" || a.status === "late").length;
   const attendancePercentage = totalAttendance > 0 ? Math.round((presentDays / totalAttendance) * 100) : 0;
 
-  const totalTests = scores.length;
+  const validScores = scores.filter(s => s.marksObtained >= 0);
+  const totalTests = validScores.length;
   const avgPercentage = totalTests > 0
-    ? Math.round(scores.reduce((acc, s) => acc + s.percentage, 0) / totalTests)
+    ? Math.round(validScores.reduce((acc, s) => acc + s.percentage, 0) / totalTests)
     : 0;
 
   // Filter scores based on active tab
@@ -212,6 +213,7 @@ export default function StudentProfilePage({ params }: { params: Promise<{ batch
   const remainingFees = Math.max(0, totalFees - totalFeesPaid);
 
   const chartData = [...displayScores]
+    .filter(s => s.marksObtained >= 0)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
     .map(s => ({
       name: s.testName,
@@ -413,14 +415,22 @@ export default function StudentProfilePage({ params }: { params: Promise<{ batch
                         <div className="flex items-center gap-6 mt-4 sm:mt-0 bg-white px-4 py-2 rounded-lg border border-slate-200">
                           <div className="text-center">
                             <p className="text-xs text-slate-500 uppercase font-bold">Marks</p>
-                            <p className="font-bold text-slate-900">{score.marksObtained} <span className="text-slate-400 font-normal">/ {score.totalMarks}</span></p>
+                            {score.marksObtained === -1 ? (
+                              <p className="font-bold text-red-500">Absent</p>
+                            ) : (
+                              <p className="font-bold text-slate-900">{score.marksObtained} <span className="text-slate-400 font-normal">/ {score.totalMarks}</span></p>
+                            )}
                           </div>
                           <div className="w-px h-8 bg-slate-200"></div>
                           <div className="text-center">
                             <p className="text-xs text-slate-500 uppercase font-bold">Score</p>
-                            <p className={`font-bold ${score.percentage >= 75 ? 'text-green-600' : score.percentage >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
-                              {score.percentage}%
-                            </p>
+                            {score.marksObtained === -1 ? (
+                              <p className="font-bold text-slate-400">N/A</p>
+                            ) : (
+                              <p className={`font-bold ${score.percentage >= 75 ? 'text-green-600' : score.percentage >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
+                                {score.percentage}%
+                              </p>
+                            )}
                           </div>
                         </div>
 
